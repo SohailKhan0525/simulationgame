@@ -10,11 +10,11 @@ import time
 word, dest, *action = sys.argv[1:]
 adb = str(Path(os.environ["ANDROID_HOME"]) / "platform-tools/adb")
 for _ in range(32):
-    frame = subprocess.check_output([adb, "exec-out", "screencap", "-p"])
+    frame = subprocess.check_output([adb, "exec-out", "screencap", "-p"], timeout=15)
     Path(dest).write_bytes(frame)
     text = subprocess.run(
         ["tesseract", dest, "stdout", "--psm", "11", "tsv"],
-        capture_output=True, text=True, check=True
+        capture_output=True, text=True, check=True, timeout=10
     ).stdout
     match = next((r for r in csv.DictReader(io.StringIO(text), delimiter="\t")
                   if r["text"].strip().casefold() == word.casefold()), None)

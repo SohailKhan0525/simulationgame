@@ -33,6 +33,17 @@ jobs:
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.ANDROID_KEY_ALIAS }}
           RELEASE_CERT_SHA256: ${{ vars.ANDROID_RELEASE_CERT_SHA256 }}
         run: bash ci/export.sh release
+      - name: Record verified APK
+        run: |
+          cat build/*.sha256 >> "$GITHUB_STEP_SUMMARY"
+          head -1 build/package.txt >> "$GITHUB_STEP_SUMMARY"
+          grep 'certificate SHA-256 digest' build/signature.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: Qofeno-Android
+          path: build/
+          if-no-files-found: error
+          retention-days: 14
       - name: Render desktop review frames
         run: |
           xvfb-run -a -s "-screen 0 1280x720x24" godot --display-driver x11 --rendering-method gl_compatibility --audio-driver Dummy --resolution 1280x720 --script res://tests/render_qa.gd -- "$RUNNER_TEMP/scenes"
@@ -44,6 +55,7 @@ jobs:
           retention-days: 14
           if-no-files-found: error
       - name: Boot APK on Android 15 and restore a shift
+        timeout-minutes: 12
         run: |
           command -v tesseract || (sudo apt-get update -qq && sudo apt-get install -y tesseract-ocr)
           package=com.qofeno.simulation.internal
@@ -53,11 +65,6 @@ jobs:
             mv "$RUNNER_TEMP/qofeno-device" "$RUNNER_TEMP/qofeno-device-first"
             QOFENO_EMULATOR_GPU=lavapipe bash ci/device-smoke.sh "$package"
           fi
-      - name: Record verified APK
-        run: |
-          cat build/*.sha256 >> "$GITHUB_STEP_SUMMARY"
-          head -1 build/package.txt >> "$GITHUB_STEP_SUMMARY"
-          grep 'certificate SHA-256 digest' build/signature.txt >> "$GITHUB_STEP_SUMMARY"
       - name: Preserve device diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -67,10 +74,11 @@ jobs:
             build/device/
             ${{ runner.temp }}/qofeno-device/
           retention-days: 5
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - name: Upload Android device evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: Qofeno-Android
-          path: build/
+          name: Android-device
+          path: build/device/
           if-no-files-found: error
           retention-days: 14
   publish:
@@ -101,6 +109,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name Qofeno-Android --dir dist
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name Android-device --dir dist/device
           cd dist
           sha256sum --check *.sha256
           tag="internal-${GITHUB_SHA:0:12}"

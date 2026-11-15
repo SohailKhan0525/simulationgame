@@ -16,6 +16,6 @@ Stable publication uses repository Actions secrets `ANDROID_KEYSTORE_BASE64`, `A
 
 ## Phone and build diagnostics
 
-The public test download is under Releases → the internal Harbor Market prerelease → Assets. The Actions artifact named Qofeno-Android contains a ZIP with the APK, digest, package manifest, certificate report, source commit and device evidence. GitHub may require sign-in for Actions artifacts. Use the public release asset for a direct phone download.
+The public test download is under Releases → the internal Harbor Market prerelease → Assets. The Actions artifact named Qofeno-Android contains a ZIP with the APK, digest, package manifest, certificate report, and source commit. The Android-device artifact contains emulator evidence. GitHub may require sign-in for Actions artifacts. Use the public release asset for a direct phone download.
 
 When validation fails, inspect the first Godot script/resource error. For Android packaging, check the engine/template versions, the Android tools step, the signer and the metadata report. The emulator step preserves its most recent screenshots and logs in a diagnostics artifact on failure. The debug package must never be published as a stable update.

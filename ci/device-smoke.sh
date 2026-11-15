@@ -41,15 +41,15 @@ done
 "$adb" shell settings put global window_animation_scale 0
 "$adb" shell settings put global transition_animation_scale 0
 "$adb" shell settings put global animator_duration_scale 0
-"$adb" install -r build/*.apk
+timeout 90 "$adb" install -r build/*.apk
 # Wait for the first launcher task after boot and display reconfiguration.
-"$adb" shell am start -W -a android.intent.action.MAIN -c android.intent.category.HOME
+timeout 40 "$adb" shell am start -W -a android.intent.action.MAIN -c android.intent.category.HOME
 sleep 5
 "$adb" logcat -c
 "$adb" logcat -b main -b system -b crash > "$out/logcat.txt" 2>&1 &
 log_pid=$!
 launch() {
-  "$adb" shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$package"
+  timeout 40 "$adb" shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$package"
 }
 launch
 python3 ci/device-screen.py "Start" build/device/menu.png tap
