@@ -84,9 +84,14 @@ func row(parent: Control) -> HBoxContainer:
 
 func clear(id: String) -> void:
 	if is_instance_valid(gestures): gestures.reset()
-	for c in stage.get_children():
-		stage.remove_child(c)
-		c.queue_free()
+	# Input dispatch may still reference the pressed button until this frame ends.
+	# Hide the old screen now and let the engine retire its controls after dispatch.
+	stage.hide()
+	stage.queue_free()
+	stage = Control.new()
+	safe.add_child(stage)
+	stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen = id
 	gestures = null
 	hud_stats = null

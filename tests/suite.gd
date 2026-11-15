@@ -113,10 +113,19 @@ func versions() -> void:
 	for code in [0,403,404,429,500,200]:
 		expect(HarborUpdates.inspect(code,null,"0.1.0")[1]=="","error handling "+str(code))
 
-func click_caption(parent: Node, caption: String) -> bool:
+func click_caption(parent: Node, caption: String, use_pointer := false) -> bool:
 	for widget in parent.find_children("*","Button",true,false):
 		if widget.text.begins_with(caption):
-			widget.pressed.emit()
+			if use_pointer:
+				var press := InputEventMouseButton.new()
+				press.position = widget.get_global_rect().get_center()
+				press.button_index = MOUSE_BUTTON_LEFT
+				press.pressed = true
+				root.push_input(press,true)
+				var release := press.duplicate() as InputEventMouseButton
+				release.pressed = false
+				root.push_input(release,true)
+			else: widget.pressed.emit()
 			return true
 	return false
 
@@ -125,9 +134,10 @@ func integration() -> void:
 	game.slot = Slot.new(prefix+"-shift.json")
 	root.add_child(game)
 	await process_frame
+	await process_frame
 	expect(game.ui.screen=="menu","branded menu boot")
 	expect(not game.directory.bind_operator("tide_hotel",Market.new()),"future property cannot bind an operator")
-	expect(click_caption(game.ui.stage,"Start new") and game.ui.screen=="hud","new shift through menu")
+	expect(click_caption(game.ui.stage,"Start new",true) and game.ui.screen=="hud","new shift through menu")
 	await physics_frame
 	expect(game.directory.business("harbor_market")==game.market,"retail operator registered")
 	game.player.stick = Vector2.UP
@@ -199,7 +209,9 @@ func integration() -> void:
 	expect(game.player.stick==Vector2.ZERO,"release clears movement")
 	game.ui.pause_menu()
 	game.leave_shift()
-	game.resume_shift()
+	await process_frame
+	await process_frame
+	click_caption(game.ui.stage,"Continue",true)
 	expect(game.market.d.receipt==1 and game.market.d.expanded and game.market.d.cash==38,"continue preserves entire paid shift")
 	game.show_menu()
 	clean(game.slot.path)
