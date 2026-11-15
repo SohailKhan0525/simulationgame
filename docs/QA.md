@@ -8,6 +8,14 @@ An additional fixed-seed stress run applies 18,000 mixed store actions with 900 
 
 The Android workflow verifies package ID, version name/code, file size and signer with aapt and apksigner. The smoke test uses a disposable API 35 x86_64 Pixel 5 profile, software GPU rendering, 720 × 1280 display override, 240 dpi and landscape gameplay. It reads actual rendered labels, taps Start, drives the floating joystick, checks the saved movement in internal builds, backgrounds and force-stops the app, then taps Continue and confirms the HUD on relaunch. The artifact contains screenshots and the Android build fingerprint for successful runs. See the release-linked workflow for the exact build outcome.
 
+## Verified internal build
+
+[Release internal-bd1646b866e1](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-bd1646b866e1) was produced by [Android run 43727365405](https://github.com/SohailKhan0525/simulationgame/actions/runs/43727365405) from commit `bd1646b866e12ca52b700a895a78d5f8b5253811`. All 60 checks and the 18,000-operation stress run passed. The Android test installed and launched the APK, recognized and tapped Start, walked from Z = 5.0 to Z = −3.57 through the front entrance, and confirmed the visit milestone and 4 XP in the background save. It force-stopped the application, relaunched, tapped Continue and observed the HUD back inside the shop. The job passed its Godot error and crash-log check.
+
+The test sent touch input through ADB on a Pixel 5 emulator profile using software Mesa rendering. Its build fingerprint was `Android/sdk_phone64_x86_64/emu64x:15/AE3A.240806.019/12368160:userdebug/test-keys`. The full retail transaction was exercised in the real Godot scene by the headless suite. The Android smoke flow covered touch movement, app lifecycle and save restoration. The release's menu and storefront PNGs are framebuffer captures.
+
+The public download was retrieved and checked against the published digest. File size is 85,156,573 bytes. SHA-256 is `35f9007b784697437d500b093160dc89cb0388f935f0010f7f80ea7f09087f9b`. Android apksigner verified v2 and v3 signatures, and aapt identified `com.qofeno.simulation.internal`, version 0.1.0 (1), minimum SDK 24 and target SDK 36. The only requested Android permission is INTERNET.
+
 ## Phone playtest
 
 - Install the internal APK, launch in airplane mode and start a shift. Confirm the logo, menu and text are legible around your notch.

@@ -2,7 +2,9 @@
 
 Run Harbor Market, a small provisions shop on a walkable waterfront. Start with $95, order your first carton, stock the shelves and open the doors. A shopper chooses an affordable item and brings it to the till. The first payment unlocks a display extension. Your shift, prices, receipts and upgrades persist on the phone.
 
-**Development status** • The Harbor Market district is an internal Android playtest. The hotel, computer store and café appear as future premises. Public APKs and their checksums are distributed on [GitHub Releases](https://github.com/SohailKhan0525/simulationgame/releases).
+**Development status** • The Harbor Market district is an internal Android playtest. The hotel, computer store and café appear as future premises. Install the [verified 0.1.0 Android APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-bd1646b866e1/Qofeno-Simulation-0.1.0-internal.apk) (85.2 MB). The [playtest release](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-bd1646b866e1) includes its checksum and Android screenshots.
+
+![Harbor Market running on the Android 15 emulator](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-bd1646b866e1/first-shift.png)
 
 ## Play on Android
 
