@@ -404,6 +404,7 @@ func daily_report() -> void:
 	text(body,"Closing cash     $%d" % m.d.cash,26,ACCENT,true)
 	button(body,"Start day %d" % (m.d.day+1),func():
 		if not m.next_day(): return
+		scanned_visit = 0
 		app.flow.reset(m)
 		app.district.time_of_day(m.d.clock)
 		app.road.set_lighting(app.district.night)
@@ -463,7 +464,7 @@ func station(id: String) -> void:
 					text(body,"Cash tendered   $%d" % tender,18)
 					var change := row(body)
 					button(change,"Less $1",func(): drawer = maxi(0,drawer-1); station("till"))
-					text(change,"Change $%d" % drawer,18)
+					text(change,"Change $%d" % drawer,18).autowrap_mode = TextServer.AUTOWRAP_OFF
 					button(change,"Add $1",func(): drawer = mini(tender,drawer+1); station("till"))
 					button(body,"Take payment    $%d" % item.price,world_action.bind(app.flow.serve.bind(visit)),true).disabled = drawer != tender-int(item.price)
 			elif app.flow.line.is_empty(): text(body,"A shopper will wait here after choosing a product.")
@@ -471,6 +472,7 @@ func station(id: String) -> void:
 
 func world_action(action: Callable) -> void:
 	var feedback: String = action.call()
+	if screen == "till": scanned_visit = 0
 	app.player.person.hands.gesture(screen,0.9)
 	app.sound.cue("coin" if screen=="till" else ("door" if screen=="sign" else "crate"))
 	hud()

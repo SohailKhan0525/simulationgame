@@ -148,11 +148,6 @@ func shop() -> void:
 		box(-4.8,y,-6.96,3.52,0.12,0.08,CREAM)
 	solid(Vector3(-4.8,1,-7.75),Vector3(3.5,2,1.45))
 	box(-5.85,0.10,-2.7,1.9,0.2,1.55,TIMBER,true)
-	for i in 3:
-		var x := -6.35 + i%2*0.9
-		var y := 0.53 + floori(i/2.0)*0.68
-		box(x,y,-2.7,0.85,0.66,1.1,"be936a",true)
-		box(x,y+0.336,-2.7,0.12,0.015,1.1,"dfc694")
 	box(4.65,0.52,-3.15,2.55,1.04,1.12,TEAL,true)
 	box(4.65,1.08,-3.15,2.7,0.14,1.22,TIMBER)
 	box(4.2,1.23,-3.13,0.62,0.17,0.47,IRON)
@@ -487,11 +482,24 @@ func refresh(m: Market) -> void:
 	door_label.text = "OPEN" if m.d.open else "CLOSED"
 	var stamp := str([m.d.expanded,m.d.queue_lane,m.on_display("tea"),m.on_display("soap"),m.on_display("cocoa"),m.d.goods.tea.price,m.d.goods.soap.price,m.d.goods.cocoa.price])
 	stamp += str([m.d.dry_goods,m.d.goods.oats,m.d.goods.pasta,m.d.goods.rice,m.on_display("oats"),m.on_display("pasta"),m.on_display("rice")])
+	for id in m.catalog: stamp += "/"+str(m.d.goods[id].back)
 	if stock_stamp == stamp: return
 	stock_stamp = stamp
 	if products: products.queue_free()
 	products = Masonry.new()
 	add_child(products)
+	var visible_crates := 0
+	for key in m.catalog:
+		var incoming := ceili(float(m.d.goods[key].back)/m.catalog[key].pack)
+		for piece in mini(incoming,6-visible_crates):
+			var cx := -6.32 + float(visible_crates%2)*0.85
+			var cy := 0.45 + floori(visible_crates/2.0)*0.50
+			products.box(cx,cy,-2.7,0.8,0.49,0.95,"af895f")
+			products.box(cx,cy+0.247,-2.7,0.09,0.012,0.94,"d4bd8d")
+			print_face(products,PACK_PRINT[key],Vector3(cx,cy,-2.218),Vector2(0.19,0.23))
+			visible_crates += 1
+	if visible_crates > 0:
+		products.solid(Vector3(-5.88,0.3,-2.7),Vector3(1.7,0.6,0.95))
 	for row in 3:
 		var id: String = ["tea","soap","cocoa"][row]
 		for i in m.on_display(id):

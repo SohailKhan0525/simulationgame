@@ -197,7 +197,14 @@ func integration() -> void:
 		game.interact()
 		match entry[0]:
 			"computer":
-				expect(click_caption(game.ui.stage,"Market") and click_caption(game.ui.stage,"Add carton") and click_caption(game.ui.stage,"Review order") and click_caption(game.ui.stage,"Place order"),"shop computer order")
+				expect(click_caption(game.ui.stage,"Market"),"open the wholesale catalogue from desktop")
+				await process_frame
+				await process_frame
+				var bounded := false
+				for control in game.ui.stage.find_children("*","Button",true,false):
+					if control.text == "Desktop": bounded = control.size.y < 65
+				expect(bounded,"desk title bar leaves catalogue and cart visible")
+				expect(click_caption(game.ui.stage,"Add carton") and click_caption(game.ui.stage,"Review order") and click_caption(game.ui.stage,"Place order"),"review and place supplier order")
 				game.ui.hud()
 			"receiving": expect(click_caption(game.ui.stage,"Collect Quayside"),"pickup from receiving")
 			"display": expect(game.ui.screen=="hud" and game.market.d.quantity == 0,"stock carton directly on shop floor")

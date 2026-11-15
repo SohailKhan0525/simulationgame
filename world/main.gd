@@ -115,7 +115,6 @@ func start(next: Market) -> void:
 	update_location()
 
 func set_playing(value: bool) -> void:
-	road.active = (value and in_shift) or not in_shift
 	road.inputs = Vector2.ZERO
 	player.active = value and in_shift and not road.aboard
 	flow.active = in_shift and (value or ui.screen in ["terminal","receiving","display","till","sign"])

@@ -27,12 +27,27 @@ func open(host: HarborUI, page: String) -> void:
 
 func desktop() -> void:
 	var desk := ui.column(ui.stage)
-	ui.anchor(desk,0,0,0,0,Rect2(25,26,220,360))
-	ui.text(desk,"Harbor workstation",24,Color.WHITE,true)
+	ui.anchor(desk,0,0,0,0,Rect2(27,24,280,300))
+	ui.text(desk,"Harbor workstation",25,Color.WHITE,true)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation",9)
+	grid.add_theme_constant_override("v_separation",9)
+	desk.add_child(grid)
 	for app_name in ["Market","Pricing","Management","Ledger"]:
-		var shortcut := ui.button(desk,app_name,ui.terminal.bind(app_name))
-		shortcut.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		shortcut.add_theme_stylebox_override("normal",ui.style(Color("24484ce8"),16,3))
+		var shortcut := ui.button(grid,app_name,ui.terminal.bind(app_name))
+		shortcut.custom_minimum_size = Vector2(117,82)
+		var tile := ui.style(Color("27494dee"),8,3)
+		tile.content_margin_top = 42
+		for state in ["normal","hover","pressed"]:
+			var skin := tile.duplicate() as StyleBoxFlat
+			if state != "normal": skin.bg_color = Color("3c6163")
+			shortcut.add_theme_stylebox_override(state,skin)
+		var icon: Control = preload("res://ui/desk_icon.gd").new()
+		icon.application = app_name
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shortcut.add_child(icon)
+		ui.anchor(icon,0,0,1,0,Rect2(0,6,0,38))
 	var panel := ui.panel(ui.stage,Color("203b40eb"),14)
 	ui.anchor(panel,0,1,1,1,Rect2(0,-63,0,63))
 	var bar := ui.row(panel)
@@ -44,11 +59,13 @@ func window() -> void:
 	var frame := ui.panel(ui.stage,PAPER,12)
 	ui.anchor(frame,0,0,1,1,Rect2(12,10,-24,-20))
 	var stack := ui.column(frame)
-	var top := ui.row(stack)
+	var head := ui.panel(stack,Color("25474b"),6)
+	var top := ui.row(head)
 	ui.button(top,"Desktop",ui.terminal)
-	var title := ui.text(top,current if current != "Cart" else "Review purchase",29,INK,true)
+	var title := ui.text(top,current if current != "Cart" else "Review purchase",26,Color.WHITE,true)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ui.text(top,"Funds   $%d" % m.d.cash,19,INK,true)
+	var wallet := ui.text(top,"Funds   $%d" % m.d.cash,19,Color.WHITE,true)
+	wallet.autowrap_mode = TextServer.AUTOWRAP_OFF
 	ui.button(top,"Leave desk",ui.hud)
 	var line := ColorRect.new()
 	line.color = Color("a7bcb7")
@@ -88,7 +105,7 @@ func window() -> void:
 				ui.text(info,m.catalog[id].name,20,INK,true)
 				ui.text(info,"Cost $%d   /   Display %d   /   Receiving %d" % [m.catalog[id].cost,m.on_display(id),m.d.goods[id].back],16,SUB)
 				ui.button(row,"− $1",action.bind(m.set_price.bind(id,-1)))
-				ui.text(row,"$%d" % m.d.goods[id].price,23,INK,true)
+				ui.text(row,"$%d" % m.d.goods[id].price,23,INK,true).autowrap_mode = TextServer.AUTOWRAP_OFF
 				ui.button(row,"+ $1",action.bind(m.set_price.bind(id,1)))
 		"Ledger":
 			ui.text(body,"Day %d   /   Trading accounts" % m.d.day,25,INK,true)
@@ -149,7 +166,7 @@ func catalogue(stack: Control) -> void:
 		ui.text(lines,m.catalog[id].name,18,INK,true)
 		var step := ui.row(lines)
 		ui.button(step,"−",edit.bind(id,-1))
-		ui.text(step,"%d" % qty,19,INK)
+		ui.text(step,"%d" % qty,19,INK).autowrap_mode = TextServer.AUTOWRAP_OFF
 		ui.button(step,"+",edit.bind(id,1))
 	ui.text(side,"Total     $%d" % m.order_total(m.d.cart),23,INK,true)
 	ui.button(side,"Review order",ui.terminal.bind("Cart"),true).disabled = m.d.cart.is_empty()

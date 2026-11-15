@@ -1,7 +1,8 @@
 # Current limitations
 
-- Internal playtest, English, one owned shop, three products, two upgrades and up to three concurrent customers. Future premises are closed. Vehicles, pedestrians outside customer visits, employees and other business simulations are pending.
-- The district combines scanned materials, modeled street props and stylized characters. Parked cars are scenery. Night lighting, more natural character faces and dedicated task animations need another art pass.
+- One owned shop, six products, a daily cashier contract, two fixture upgrades and up to three shoppers. Each shopper buys one unit. Free placement, online customer delivery, theft, multiplayer and a city-wide supplier network remain outside this release.
+- Quay Road is a single waterfront street. Four traffic cars follow its two lanes. The estate supports driving, parking and save restoration. Fuel, freight, vehicle dealing, damage and repair remain open.
+- The sunset sky and shop lamps run in the compatibility renderer. The evening sky uses a single twilight model. Character outfits, face variety and task animations still need work.
 - Routes and queue marks are authored for this floor plan. Shoppers yield to one another. Freeform fixture placement, avoidance of the player and district-wide crowd navigation remain open.
 - A shopper in progress restarts after a reload. Unpaid baskets keep their units on the shelf. Paid receipts persist.
 - Internal CI uses a disposable debug signer. Stable signing, stable-to-stable upgrade testing and personal-device performance acceptance remain open. Keep a test installation if its private save matters.

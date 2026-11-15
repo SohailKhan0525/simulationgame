@@ -7,3 +7,8 @@ Harbor Market implements ordering, receiving, shelf stocking, customer visits, c
 3. Add Relay Computers and a gaming shop using the retail catalog and shared transaction tests. Add device-specific services as independent operators.
 4. Introduce a drivable vehicle, parking and deliveries. Use the logistics loop for dealerships and fuel inventory at a gas station.
 5. Add a service-based café/restaurant operator, then hotel rooms and bookings. Integrate property purchases and staff only after separate ownership and capacity tests.
+
+
+## Following Opening Hours
+
+Work on shop-floor depth comes first. Add multi-item shopping lists and physical carton placement, then custom fixture layout and offline customer deliveries. Extend the estate into a useful freight vehicle with local supplier pickup. Follow with district vehicle ownership, fuel and dealership trading. The gaming store, restaurant and hotel remain future operators. Physical Android profiling and persistent release signing remain prerequisites for a stable public build.

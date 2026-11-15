@@ -21,6 +21,7 @@ class Shopper extends RefCounted:
 	var route: Array[Vector3] = []
 	var browse_left := 1.7
 	var speed: float
+	var product := ""
 
 var market: Market
 var shoppers: Array[Shopper] = []
@@ -71,7 +72,9 @@ func spawn_shopper() -> void:
 	add_child(shopper.person)
 	shopper.person.outfit(visits % 2, visits)
 	shopper.person.position = STREET
-	shopper.route.assign([ENTRY, AISLE, Vector3(-4.45,0.055,-4.45), SHELF])
+	shopper.product = market.choose_product(visits)
+	var shelf := Vector3(-1.7,0.055,-6.27) if shopper.product in ["oats","pasta","rice"] else SHELF
+	shopper.route.assign([ENTRY, AISLE, Vector3(shelf.x,0.055,-4.45), shelf])
 	shoppers.append(shopper)
 
 func close_lane() -> void:
@@ -156,7 +159,8 @@ func tick(delta: float) -> void:
 					if shopper.route.is_empty(): arrive(shopper)
 
 func select_item(shopper: Shopper) -> void:
-	var id := market.choose_product(shopper.visit)
+	var id := shopper.product
+	if not id.is_empty() and market.d.goods[id].price > int(market.catalog[id].price)+(shopper.visit%4): id = ""
 	if id.is_empty() or not market.reserve(shopper.visit, id):
 		depart(shopper)
 		return
