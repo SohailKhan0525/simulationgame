@@ -8,7 +8,7 @@ An additional fixed-seed stress run applies 18,000 mixed store actions with 900 
 
 The Android workflow verifies package ID, version name/code, file size and signer with aapt and apksigner. The smoke test uses a disposable API 35 x86_64 Pixel 5 profile, software GPU rendering, 720 × 1280 display override, 240 dpi and landscape gameplay. It reads actual rendered labels, taps Start, drives the floating joystick, checks the saved movement in internal builds, backgrounds and force-stops the app, then taps Continue and confirms the HUD on relaunch. The artifact contains screenshots and the Android build fingerprint for successful runs. See the release-linked workflow for the exact build outcome.
 
-## Verified internal build
+## Earlier verified build, 0.1.0
 
 [Release internal-bd1646b866e1](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-bd1646b866e1) was produced by [Android run 43727365405](https://github.com/SohailKhan0525/simulationgame/actions/runs/43727365405) from commit `bd1646b866e12ca52b700a895a78d5f8b5253811`. All 60 checks and the 18,000-operation stress run passed. The Android test installed and launched the APK, recognized and tapped Start, walked from Z = 5.0 to Z = −3.57 through the front entrance, and confirmed the visit milestone and 4 XP in the background save. It force-stopped the application, relaunched, tapped Continue and observed the HUD back inside the shop. The job passed its Godot error and crash-log check.
 
@@ -39,4 +39,14 @@ On a phone, buy the checkout lane for $32 after the first sale. Stock at least t
 
 ## Waterfront art acceptance, 0.3.0
 
-The Linux Godot run exercises eye-level and third-person cameras, real opening stock, direct shelf stocking, current UI controls, queue movement and migration. The original Android OCR crop failed on a relaunch image even though the Pause button was visible. The revised crop was retested on the captured launch and restored-shift frames. The workflow also captures a street and stocked pantry from the installed APK using stated review poses. Physical touch comfort, heat and frame pacing still need a handset.
+The Linux Godot run exercises eye-level and third-person cameras, real opening stock, direct shelf stocking, current UI controls, queue movement and migration. The original Android OCR crop failed on a relaunch image even though the Pause button was visible. The revised crop was retested on the captured launch and restored-shift frames. On the emulator, the basket name wrapped into a narrow column and pushed payment below the viewport. The fix gives the receipt column its available width. The workflow also captures a street and stocked pantry from the installed APK using stated review poses. Physical touch comfort, heat and frame pacing still need a handset.
+
+### Published Android result
+
+[Run 43736526106](https://github.com/SohailKhan0525/simulationgame/actions/runs/43736526106) produced [prerelease internal-75730294c497](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-75730294c497) from `75730294c4977a7958c9cb87c29568dfa522cf80`. The same run passed the Godot import, 130 checks, 18,000 deterministic store operations and 900 JSON reloads. The checkout layout test requires the product name to fit and the payment button to be fully visible in the touch panel.
+
+The emulator installed the APK, tapped Start, moved the player from the opening position to X -0.00, Z -0.17, backgrounded and force-stopped the app, and tapped Continue after relaunch. In a separate seeded shift, three shoppers formed a line. Two touch payments left 3 cumulative receipts, $67 cash, $24 revenue and 2 unsold tea units. The street and pantry captures use staged positions in the installed app. The graphics reference study used public Steam screenshots.
+
+The independently downloaded release APK was 97,856,370 bytes. SHA-256 `e8c6d29de20655ed4dcfc3e9e143b91f832aa0fec66fd081e63963a367c18e79`. Android Build Tools verified v2/v3 signatures, package `com.qofeno.simulation.internal`, version 0.3.0 (3), minimum SDK 24 and target SDK 36. The APK is debug-signed. The Android fingerprint was `Android/sdk_phone64_x86_64/emu64x:15/AE3A.240806.019/12368160:userdebug/test-keys`. Hardware performance and production-key upgrade acceptance remain pending.
+
+[Street framebuffer](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/waterfront-street.png) · [Pantry framebuffer](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/pantry-display.png) · [Touch checkout](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/queue-first-basket.png)

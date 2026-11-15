@@ -1,6 +1,6 @@
 # Expansion order
 
-Harbor Market implements ordering, receiving, shelf stocking, customer visits, checkout, receipts, price changes, a shelf upgrade, XP, savings and a guided first shift. The checkout lane supports three concurrent shoppers, per-visit reservations and physical queue advancement. A map marks future premises. [Machine-readable backlog](backlog.json)
+Harbor Market implements ordering, receiving, shelf stocking, customer visits, checkout, receipts, price changes, a shelf upgrade, XP, savings and a guided first shift. The 0.3.0 Waterfront playtest adds an eye-level camera, photographed surfaces, parked vehicles, improved character shading and contextual shop controls. The checkout lane supports three concurrent shoppers, per-visit reservations and physical queue advancement. A map marks future premises. [Machine-readable backlog](backlog.json)
 
 1. Finish Android acceptance on representative devices, establish the production signer and test two consecutive signed updates with retained saves.
 2. Expand retail depth and presentation with district-wide navigation, better animations, more characters and mobile profiling.

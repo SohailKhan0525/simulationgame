@@ -2,16 +2,18 @@
 
 Run Harbor Market, a small provisions shop on a walkable waterfront. Start with $95, four soaps and three cocoa tins on display. Order your first carton, stock the shelves and open the doors. A shopper chooses an affordable item and brings it to the till. The first payment unlocks two upgrades. Extend the shelves or mark out a checkout lane for three shoppers. The window samples stay on display as advertising. Your shift, prices, receipts and upgrades persist on the phone.
 
-**Development status** • The Harbor Market district is an internal Android playtest. The hotel, computer store and café appear as future premises. Install the [verified 0.1.0 Android APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-bd1646b866e1/Qofeno-Simulation-0.1.0-internal.apk) (85.2 MB). The [playtest release](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-bd1646b866e1) includes its checksum and Android screenshots.
+**Android playtest 0.3.0 · Waterfront** — [Download the 97.9 MB APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/Qofeno-Simulation-0.3.0-internal.apk) or [open the release and checksum](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-75730294c497). This internal edition starts at eye level. Settings also offers a third-person view. The hotel, computer store and café are future premises.
 
-![Harbor Market running on the Android 15 emulator](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-bd1646b866e1/first-shift.png)
+![The waterfront street in the installed Android build](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/waterfront-street.png)
+
+[Stocked pantry](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/pantry-display.png) · [Checkout](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/queue-first-basket.png) · [Android build and device test](https://github.com/SohailKhan0525/simulationgame/actions/runs/43736526106)
 
 ## Play on Android
 
 1. In the repository's Releases section, open the Harbor Market internal playtest and download the `.apk` under Assets. Use a phone with Android 7.0 or newer and OpenGL ES 3 support.
 2. Open the file. If Android asks, allow installation from the browser or Files app you used, then confirm Install. You can switch that permission off afterward.
 3. Launch **Qofeno Simulation** in landscape. Start new shift. Use Continue on the next launch.
-4. Keep the internal app installed to retain its save. Production and test editions use separate package IDs. The stable edition will support in-place updates with a persistent signing key. Removing an app deletes its local progress.
+4. If you already play an earlier internal build and want its shift, keep it installed. Internal builds use different debug keys. Android rejects in-place installation across those keys, and uninstalling removes the private save. Production and test editions use separate package IDs. The stable edition will support in-place updates with a persistent signing key. Removing an app deletes its local progress.
 
 ## First shift
 
