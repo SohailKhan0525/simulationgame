@@ -1,0 +1,125 @@
+name: Android
+on:
+  push:
+    branches: [main, 'release/internal-*']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install pinned Godot and Android tools
+        run: |
+          bash ci/toolchain.sh
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+      - name: Import and test the game
+        run: bash ci/validate.sh
+      - name: Export internal APK
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        run: bash ci/export.sh debug
+      - name: Export and verify release APK
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          SIGNING_STORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.ANDROID_KEY_ALIAS }}
+          RELEASE_CERT_SHA256: ${{ vars.ANDROID_RELEASE_CERT_SHA256 }}
+        run: bash ci/export.sh release
+      - name: Record verified APK
+        run: |
+          cat build/*.sha256 >> "$GITHUB_STEP_SUMMARY"
+          head -1 build/package.txt >> "$GITHUB_STEP_SUMMARY"
+          grep 'certificate SHA-256 digest' build/signature.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: Qofeno-Android
+          path: build/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Render desktop review frames
+        run: |
+          xvfb-run -a -s "-screen 0 1280x720x24" godot --display-driver x11 --rendering-method gl_compatibility --audio-driver Dummy --resolution 1280x720 --script res://tests/render_qa.gd -- "$RUNNER_TEMP/scenes"
+      - name: Upload scene review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: Harbor-scenes
+          path: ${{ runner.temp }}/scenes/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Boot APK on Android 15 and restore a shift
+        timeout-minutes: 12
+        run: |
+          if ! command -v tesseract || ! /usr/bin/python3 -c "import PIL"; then sudo apt-get update -qq && sudo apt-get install -y tesseract-ocr python3-pil; fi
+          package=com.qofeno.simulation.internal
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then package=com.qofeno.simulation; fi
+          if ! LIBGL_ALWAYS_SOFTWARE=1 QOFENO_EMULATOR_GPU=host xvfb-run -a bash ci/device-smoke.sh "$package"; then
+            if ! grep -Eq 'Fragment shader active uniforms exceed|Invalid GPU mode|Failed to initialize EGL|Failed to bind to texture|eglInitialize failed|Could not initialize emulated framebuffer' "$RUNNER_TEMP"/qofeno-device/*.txt "$RUNNER_TEMP"/qofeno-device/*.log; then exit 1; fi
+            mv "$RUNNER_TEMP/qofeno-device" "$RUNNER_TEMP/qofeno-device-first"
+            QOFENO_EMULATOR_GPU=lavapipe bash ci/device-smoke.sh "$package"
+          fi
+      - name: Preserve device diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: device-diagnostics
+          path: |
+            build/device/
+            ${{ runner.temp }}/qofeno-device/
+          retention-days: 5
+      - name: Upload Android device evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: Android-device
+          path: build/device/
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Publish signed tagged artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name Qofeno-Android --dir dist
+          cd dist && sha256sum --check *.sha256
+          gh release create "$GITHUB_REF_NAME" *.apk *.sha256 manifest.json --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
+  internal:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/internal-')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Publish emulator-tested internal preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name Qofeno-Android --dir dist
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name Android-device --dir dist/device
+          cd dist
+          sha256sum --check *.sha256
+          tag="internal-${GITHUB_SHA:0:12}"
+          git_version=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" package.txt | head -1)
+          cat > notes.md <<NOTES
+          Internal Android playtest of Harbor Market. Order stock, collect a carton, fill the display, open the shop and take a payment before upgrading.
+
+          Debug-signed internal package. Future test builds may use different signing keys. Stable releases use a separate package and save slot. Keep this build installed to retain this shift.
+
+          Commit: $GITHUB_SHA
+          CI: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          NOTES
+          gh release create "$tag" *.apk *.sha256 manifest.json device/first-shift.png device/menu.png --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Harbor Market $git_version · internal Android playtest" --notes-file notes.md
