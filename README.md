@@ -1,6 +1,6 @@
 # Qofeno Simulation
 
-Run Harbor Market, a small provisions shop on a walkable waterfront. Start with $95, four soaps and three cocoa tins on display. Order your first carton, stock the shelves and open the doors. A shopper chooses an affordable item and brings it to the till. The first payment unlocks two upgrades. Extend the shelves or mark out a checkout lane for three shoppers. The window samples stay on display as advertising. Your shift, prices, receipts and upgrades persist on the phone.
+Run Harbor Market on Quay Road. Prepare before 08:00 opening, order supplies at the shop computer, fill displays and scan customer purchases. Hire a cashier, license three more groceries and drive the estate along the waterfront. At 21:00 the doors close to new customers. Settle the last baskets, read the day’s statement and open again the next morning.
 
 **Android playtest 0.3.0 · Waterfront** — [Download the 97.9 MB APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/Qofeno-Simulation-0.3.0-internal.apk) or [open the release and checksum](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-75730294c497). This internal edition starts at eye level. Settings also offers a third-person view. The hotel, computer store and café are future premises.
 
@@ -21,10 +21,14 @@ Run Harbor Market, a small provisions shop on a walkable waterfront. Start with 
 |---|---|
 | Walk and look | Drag on the left half for the floating stick. Drag on the right to turn the camera. Tap Run or Walk to change pace. Settings → First-person camera switches between eye-level and third-person views. |
 | Enter the market | Walk through the open doorway under the striped awning. A contextual button appears within reach of equipment. |
-| Order | Use the rear-right computer, choose Orders, and buy a carton. The first tea carton costs $20 for five units. |
+| Order | At the rear-right computer, open Market, add cartons, review the order and choose Place order. The first tea carton costs $20 for five units. |
 | Carry and stock | Collect the carton at the front-left pallet. Bring it to the rear-left display and tap Stock to place the contents directly. Product boxes appear on the shelf. |
-| Trade | Use the sign beside the door to open. Wait for the shopper to browse and reach the till, then use Checkout to take payment. |
+| Trade | Use the sign beside the door to open. Wait for the shopper to browse and reach the till, then scan the product. Authorize a card or count out the difference between cash tendered and the scanned total. |
 | Reinvest | At the computer, review receipts, set prices, and install the $45 display extension after the first sale. The $32 checkout lane admits up to three shoppers. Each chooses a product at its current price, then waits their turn. Every fifth sale awards a $5 trading bonus. |
+| Hire and license | In Management, hire a cashier for $12 for the current day after your first sale. At level 2, the $36 dry goods licence adds oats, pasta, rice and their display. |
+| Drive | Walk up to the blue estate outside the market. Tap Drive estate. Steer with the left controls, use Drive or Brake / R with the right thumb, then stop and tap Get out. |
+| Collect by car | During order review, choose Collect by car for up to four cartons. Stop in the marked bay at East Pier Wholesale, load the estate, then unload at Harbor Market for a $4 freight credit. |
+| Close | Use the door sign to switch the lights or close early. At 21:00, finish serving and return to the sign. Review and finish day shows the totals. Start the next day to return to 08:00. |
 | Save and explore | Pause → Save now. Map shows your position and destination. Earnings and stock mutations save after each completed action. |
 
 For desktop development use WASD or arrow keys, Shift to run, right-drag to look, E to interact, M for map and Escape to go back.

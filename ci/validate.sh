@@ -11,3 +11,4 @@ check --editor --import
 check --quit-after 5
 check --script res://tests/suite.gd
 check --script res://tests/conservation.gd
+check --script res://tests/freight.gd

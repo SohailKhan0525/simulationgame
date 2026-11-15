@@ -17,6 +17,10 @@ var hud_task: Label
 var interact: Button
 var message: Label
 var notice_time := 0.0
+var desk := MarketDesk.new()
+var scanned_visit := 0
+var drawer := 0
+var pedals: HarborPedals
 var screen := ""
 var app: Node
 
@@ -87,6 +91,8 @@ func row(parent: Control) -> HBoxContainer:
 
 func clear(id: String) -> void:
 	if is_instance_valid(gestures): gestures.reset()
+	if is_instance_valid(pedals): pedals.release_all()
+	pedals = null
 	# Input dispatch may still reference the pressed button until this frame ends.
 	# Hide the old screen now and let the engine retire its controls after dispatch.
 	stage.hide()
@@ -171,11 +177,17 @@ func menu() -> void:
 
 func hud() -> void:
 	clear("hud")
-	gestures = HarborGestures.new()
-	stage.add_child(gestures)
-	gestures.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	gestures.moved.connect(func(value: Vector2): app.player.stick = value)
-	gestures.looked.connect(func(value: Vector2): app.player.turn(value,app.prefs.values))
+	if app.road.aboard:
+		pedals = HarborPedals.new()
+		stage.add_child(pedals)
+		pedals.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		pedals.moved.connect(func(value: Vector2): app.road.inputs = value)
+	else:
+		gestures = HarborGestures.new()
+		stage.add_child(gestures)
+		gestures.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		gestures.moved.connect(func(value: Vector2): app.player.stick = value)
+		gestures.looked.connect(func(value: Vector2): app.player.turn(value,app.prefs.values))
 	# Restrict contrast backing to the corners, leaving the player's view clear.
 	var compass := Control.new()
 	stage.add_child(compass)
@@ -194,7 +206,7 @@ func hud() -> void:
 	anchor(top,1,0,1,0,Rect2(-149,10,136,46))
 	quiet_button(top,"Map",map_view)
 	quiet_button(top,"Pause",pause_menu)
-	if app.prefs.values.first_person:
+	if app.prefs.values.first_person and not app.road.aboard:
 		var dot := Panel.new()
 		stage.add_child(dot)
 		anchor(dot,0.5,0.5,0.5,0.5,Rect2(-2.3,-2.3,4.6,4.6))
@@ -205,8 +217,14 @@ func hud() -> void:
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	interact = button(stage,"Interact",app.interact,true)
 	anchor(interact,1,1,1,1,Rect2(-215,-70,199,51))
+	if app.road.aboard:
+		anchor(interact,1,1,1,1,Rect2(-137,-174,119,49))
+		var transfer := button(stage,"Load cartons",app.handle_freight,true)
+		transfer.name = "Freight"
+		anchor(transfer,1,1,1,1,Rect2(-324,-174,177,49))
 	var run := quiet_button(stage,"Run",func(): app.player.running = not app.player.running; refresh())
 	run.name = "Pace"
+	run.visible = not app.road.aboard
 	anchor(run,1,1,1,1,Rect2(-105,-122,89,46))
 	add_notice()
 	refresh()
@@ -238,8 +256,20 @@ func refresh() -> void:
 	if screen != "hud" or not is_instance_valid(hud_stats): return
 	var m: Market = app.market
 	var minutes := int(m.d.clock)
-	hud_stats.text = "$%d     /     %02d:%02d    ·    LV %d" % [m.d.cash,minutes/60,minutes%60,m.level()]
+	hud_stats.text = "Day %d    %02d:%02d    /    $%d" % [m.d.day,minutes/60,minutes%60,m.d.cash]
+	if app.road.aboard:
+		hud_task.text = "%02d km/h   ·   Quay Road" % roundi(absf(app.road.estate.speed)*3.6)
+		interact.visible = true
+		interact.text = "Get out"
+		var freight := stage.get_node("Freight") as Button
+		var bay: String = app.district.loading_bay(app.road.estate.position)
+		freight.visible = (bay=="depot" and m.d.freight=="depot") or (bay=="market" and m.d.freight=="estate")
+		freight.text = "Load cartons" if bay=="depot" else "Unload cartons"
+		if m.d.freight=="depot": hud_task.text += "   /   East Pier Wholesale →"
+		if m.d.freight=="estate": hud_task.text += "   /   Return to Harbor Market"
+		return
 	hud_task.text = m.objective() if app.prefs.values.hints else "Harbor District"
+	if minutes >= Market.CLOSING: hud_task.text = "Closing time · Finish trading at the door sign"
 	if m.d.quantity: hud_task.text += "  •  Carrying %d" % m.d.quantity
 	interact.visible = app.nearest != ""
 	if interact.visible:
@@ -284,7 +314,12 @@ func back() -> void:
 		"menu": return
 		"settings","updates","credits": pause_menu() if app.in_shift else menu()
 		"new": menu()
-		"terminal","receiving","display","till","sign","map","pause": hud()
+		"terminal":
+			if desk.current == "Desktop": hud()
+			elif desk.current == "Cart": terminal("Market")
+			else: terminal()
+		"daily": station("sign")
+		"receiving","display","till","sign","map","pause": hud()
 		"exit": pause_menu()
 		_: menu()
 
@@ -364,68 +399,27 @@ func product_photo(parent: Control, id: String, box: Vector2) -> void:
 	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(picture)
 
-func terminal(tab := "Overview") -> void:
-	sheet("terminal","HARBOR OS  /  SHOP COMPUTER","Market desk",hud)
-	var m: Market = app.directory.business("harbor_market")
-	var tabs := row(body)
-	for key in ["Overview","Orders","Prices","Reports","Upgrade"]:
-		var tab_button := quiet_button(tabs,key,terminal.bind(key))
-		if key == tab:
-			var selected := style(Color("3c4949"),10)
-			selected.border_width_bottom = 3
-			selected.border_color = ACCENT
-			tab_button.add_theme_stylebox_override("normal",selected)
-	match tab:
-		"Overview":
-			text(body,"Cash  $%d     •     XP  %d     •     Level  %d" % [m.d.cash,m.d.xp,m.level()],22)
-			text(body,m.objective(),19,ACCENT)
-			for id in m.catalog:
-				var g: Dictionary = m.d.goods[id]
-				text(body,"%s   •   %d at receiving   /   %d on display   /   %d in baskets" % [m.catalog[id].name,g.back,m.on_display(id),int(g.shelf)-m.on_display(id)],17,MUTED)
-			text(body,"Pick up deliveries at the front-left pallet. Place them on the rear-left display. Use the door sign to start trading.",16)
-		"Orders":
-			text(body,"Supplier delivers to receiving immediately. Cash available $%d." % m.d.cash,17,MUTED)
-			for id in m.catalog:
-				var item: Dictionary = m.catalog[id]
-				var product := row(body)
-				product_photo(product,id,Vector2(40,51))
-				var details := column(product)
-				details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				details.add_theme_constant_override("separation",0)
-				text(details,item.name,20,PAPER,true)
-				text(details,"%s   /   $%d per unit" % [item.category,item.cost],15,MUTED)
-				var cost := int(item.cost*item.pack)
-				var buy := button(product,"Order %d   ·   $%d" % [item.pack,cost],transaction.bind(m.order.bind(id),tab))
-				if m.d.cash < cost:
-					buy.text = "Need $%d" % cost
-					buy.disabled = true
-		"Prices":
-			text(body,"Shoppers have different budgets. A high price can send them home empty-handed.",16,MUTED)
-			for id in m.catalog:
-				var line := row(body)
-				var info := text(line,"%s   $%d" % [m.catalog[id].name,m.d.goods[id].price])
-				info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				button(line,"− $1",transaction.bind(m.set_price.bind(id,-1),tab))
-				button(line,"+ $1",transaction.bind(m.set_price.bind(id,1),tab))
-		"Reports":
-			text(body,"Revenue  $%d    •    Gross profit  $%d" % [m.d.revenue,m.d.revenue-m.cost_of_sales()],21)
-			text(body,"Stock purchased $%d   •   Cost of goods sold $%d   •   %d sales" % [m.d.spend,m.cost_of_sales(),m.d.receipt],16,MUTED)
-			for id in m.catalog: text(body,"%s sold   %d" % [m.catalog[id].name,m.d.goods[id].sold],16)
-			for entry in m.d.log: text(body,"Receipt %03d    %s    +$%d" % [entry.n,m.catalog[entry.id].name,entry.paid],16,MUTED)
-		"Upgrade":
-			text(body,"Display extension",22)
-			text(body,"Adds a second row on every shelf. Capacity rises from six to twelve units per product. Unlocks after the first sale.",17,MUTED)
-			if m.d.expanded: text(body,"Installed",19,ACCENT)
-			else: button(body,"Install extension    $45",transaction.bind(m.expand,tab),true)
-			text(body,"Checkout lane",22)
-			text(body,"Three marked spaces let up to three shoppers browse and queue together. Available after your first sale.",17,MUTED)
-			if m.d.queue_lane: text(body,"Installed",19,ACCENT)
-			else: button(body,"Install checkout lane    $%d" % Market.QUEUE_LANE_COST,transaction.bind(m.install_queue_lane,tab),true)
+func terminal(page := "Desktop") -> void:
+	desk.open(self,page)
 
-func transaction(action: Callable, tab: String) -> void:
-	var info: String = action.call()
-	terminal(tab)
-	toast(info)
+func daily_report() -> void:
+	var m: Market = app.market
+	sheet("daily","HARBOR MARKET","Day %d  ·  Closing statement" % m.d.day,station.bind("sign"))
+	var opening: Array = m.d.morning
+	text(body,"Opening cash     $%d" % opening[0],19)
+	text(body,"Customer payments     %d     /     $%d" % [m.d.receipt-opening[1],m.d.revenue-opening[2]],19)
+	text(body,"Stock purchased     $%d" % [m.d.spend-opening[3]],19)
+	text(body,"Net cash change     $%d" % [m.d.cash-opening[0]],19)
+	text(body,"Closing cash     $%d" % m.d.cash,26,ACCENT,true)
+	button(body,"Start day %d" % (m.d.day+1),func():
+		if not m.next_day(): return
+		scanned_visit = 0
+		app.flow.reset(m)
+		app.district.time_of_day(m.d.clock)
+		app.road.set_lighting(app.district.night)
+		app.save_shift(true)
+		hud()
+		toast("08:00 · The shop is ready for a new day."),true)
 
 func station(id: String) -> void:
 	var m: Market = app.market
@@ -437,14 +431,21 @@ func station(id: String) -> void:
 				button(body,"Return carton",world_action.bind(m.put_back))
 			else:
 				for key in m.catalog:
+					if not m.licensed(key): continue
 					button(body,"Collect %s    ·    %d available" % [m.catalog[key].name,m.d.goods[key].back],world_action.bind(m.collect.bind(key)))
 		"display":
 			text(body,"Display capacity   %d per product" % m.capacity())
-			for key in m.catalog: text(body,"%s   ·   %d on shelf" % [m.catalog[key].name,m.on_display(key)],17,MUTED)
+			for key in m.catalog:
+				if not m.licensed(key): continue
+				text(body,"%s   ·   %d on shelf" % [m.catalog[key].name,m.on_display(key)],17,MUTED)
 			button(body,"Stock carried carton",world_action.bind(m.stock),true)
 		"sign":
-			text(body,"Customers browse stocked products, then bring a basket to the till.")
-			button(body,"Close shop" if m.d.open else "Open shop",world_action.bind(m.toggle_open),true)
+			text(body,"Day %d   ·   Trading hours 08:00–21:00" % m.d.day)
+			if m.d.clock < Market.CLOSING:
+				button(body,"Close shop" if m.d.open else "Open shop",world_action.bind(m.toggle_open),true)
+			button(body,"Turn shop lights %s" % ("off" if m.d.lights else "on"),world_action.bind(m.toggle_lights))
+			if m.can_finish(): button(body,"Review and finish day",daily_report,true)
+			elif not m.d.open and not m.reservations.is_empty(): text(body,"Serve the remaining baskets before finishing the day.",17,MUTED)
 		"till":
 			var visit: int = app.flow.ready_visit()
 			if visit:
@@ -458,12 +459,29 @@ func station(id: String) -> void:
 				text(body,"Total    $%d.00" % item.price,31,PAPER,true)
 				if app.flow.line.size() > 1:
 					text(body,"%d more in line" % (app.flow.line.size()-1),17,MUTED)
-				button(body,"Take payment    $%d" % item.price,world_action.bind(app.flow.serve.bind(visit)),true)
+				if scanned_visit != visit:
+					button(body,"Scan product",func():
+						scanned_visit = visit
+						drawer = 0
+						app.sound.cue("scan")
+						station("till"),true)
+				elif visit % 2 == 1:
+					text(body,"Card presented · charge the scanned total.",17,MUTED)
+					button(body,"Take payment    $%d" % item.price,world_action.bind(app.flow.serve.bind(visit)),true)
+				else:
+					var tender := ceili(item.price/5.0)*5
+					text(body,"Cash tendered   $%d" % tender,18)
+					var change := row(body)
+					button(change,"Less $1",func(): drawer = maxi(0,drawer-1); station("till"))
+					text(change,"Change $%d" % drawer,18).autowrap_mode = TextServer.AUTOWRAP_OFF
+					button(change,"Add $1",func(): drawer = mini(tender,drawer+1); station("till"))
+					button(body,"Take payment    $%d" % item.price,world_action.bind(app.flow.serve.bind(visit)),true).disabled = drawer != tender-int(item.price)
 			elif app.flow.line.is_empty(): text(body,"A shopper will wait here after choosing a product.")
 			else: text(body,"The next shopper is approaching. Return to the shop floor to let them reach the till.")
 
 func world_action(action: Callable) -> void:
 	var feedback: String = action.call()
+	if screen == "till": scanned_visit = 0
 	app.player.person.hands.gesture(screen,0.9)
 	app.sound.cue("coin" if screen=="till" else ("door" if screen=="sign" else "crate"))
 	hud()
@@ -472,14 +490,16 @@ func world_action(action: Callable) -> void:
 func map_view() -> void:
 	sheet("map","HARBOR DISTRICT","Waterfront map",hud)
 	var map := HarborAtlas.new()
-	map.places = app.directory.entries
-	map.player_pos = app.player.position
+	map.places = app.directory.entries.duplicate()
+	map.places.append({"name":"East Pier Wholesale","x":District.DEPOT.x,"z":5.0,"playable":false,"supplier":true})
+	map.player_pos = app.road.estate.position if app.road.aboard else app.player.position
 	map.target = app.waypoint
+	map.car_pos = app.road.estate.position
 	map.custom_minimum_size.y = 156
 	body.add_child(map)
-	text(body,"White dot • your position     Copper ring • selected destination",15,MUTED)
+	text(body,"White dot · You      Blue car · Estate      Copper ring · Destination",15,MUTED)
 	for place in map.places:
-		button(body,place.name + ("   ·   Your shop" if place.playable else "   ·   Future premises"),func():
+		button(body,place.name + ("   ·   Loading bay" if place.get("supplier",false) else ("   ·   Your shop" if place.playable else "   ·   Future premises")),func():
 			app.waypoint = Vector2(place.x,place.z)
 			map.target = app.waypoint
 			map.queue_redraw())

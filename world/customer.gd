@@ -21,16 +21,21 @@ class Shopper extends RefCounted:
 	var route: Array[Vector3] = []
 	var browse_left := 1.7
 	var speed: float
+	var product := ""
 
 var market: Market
 var shoppers: Array[Shopper] = []
 var line: Array[Shopper] = []
 var next_arrival := 2.6
 var visits := 0
+var cashier: HarborPerson
+var service_left := 3.2
+var service_visit := 0
 var active := false
 
 func reset(next: Market) -> void:
 	if market:
+		market.changed.disconnect(staff)
 		market.closed.disconnect(close_lane)
 		for shopper in shoppers:
 			market.cancel_basket(shopper.visit)
@@ -40,8 +45,23 @@ func reset(next: Market) -> void:
 	line.clear()
 	market = next
 	market.closed.connect(close_lane)
+	market.changed.connect(staff)
+	service_visit = 0
+	staff()
 	visits = int(market.d.receipt)
 	next_arrival = 2.6
+
+func staff() -> void:
+	if market.d.cashier and not is_instance_valid(cashier):
+		cashier = HarborPerson.new()
+		add_child(cashier)
+		cashier.outfit(1,4)
+		cashier.position = Vector3(4.18,0.055,-4.08)
+		cashier.pose("Idle")
+	elif not market.d.cashier and is_instance_valid(cashier):
+		cashier.hide()
+		cashier.queue_free()
+		cashier = null
 
 func spawn_shopper() -> void:
 	visits += 1
@@ -52,14 +72,15 @@ func spawn_shopper() -> void:
 	add_child(shopper.person)
 	shopper.person.outfit(visits % 2, visits)
 	shopper.person.position = STREET
-	shopper.route.assign([ENTRY, AISLE, Vector3(-4.45,0.055,-4.45), SHELF])
+	shopper.product = market.choose_product(visits)
+	var shelf := Vector3(-1.7,0.055,-6.27) if shopper.product in ["oats","pasta","rice"] else SHELF
+	shopper.route.assign([ENTRY, AISLE, Vector3(shelf.x,0.055,-4.45), shelf])
 	shoppers.append(shopper)
 
 func close_lane() -> void:
 	for shopper in shoppers:
-		if shopper.phase != Phase.LEAVING:
+		if shopper.phase in [Phase.ARRIVING, Phase.BROWSING]:
 			depart(shopper)
-	line.clear()
 	changed.emit()
 
 func depart(shopper: Shopper) -> void:
@@ -102,6 +123,15 @@ func _physics_process(delta: float) -> void:
 
 func tick(delta: float) -> void:
 	if not active or market == null: return
+	if is_instance_valid(cashier):
+		var head := ready_visit()
+		if head != service_visit:
+			service_visit = head
+			service_left = 3.2
+			if head: cashier.hands.gesture("till",2.3)
+		elif head:
+			service_left -= delta
+			if service_left <= 0: serve(head)
 	if market.d.open and shoppers.size() < market.customer_limit() and not market.available().is_empty():
 		next_arrival -= delta
 		if next_arrival <= 0:
@@ -129,7 +159,8 @@ func tick(delta: float) -> void:
 					if shopper.route.is_empty(): arrive(shopper)
 
 func select_item(shopper: Shopper) -> void:
-	var id := market.choose_product(shopper.visit)
+	var id := shopper.product
+	if not id.is_empty() and market.d.goods[id].price > int(market.catalog[id].price)+(shopper.visit%4): id = ""
 	if id.is_empty() or not market.reserve(shopper.visit, id):
 		depart(shopper)
 		return

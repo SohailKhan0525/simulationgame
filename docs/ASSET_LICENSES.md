@@ -24,3 +24,6 @@ Both character files were obtained from the creators' Poly Pizza listings. The s
 | Type | Barlow Regular and Barlow Condensed SemiBold by Jeremy Tribby and contributors, SIL Open Font License 1.1. Fonts and the two copyright/license notices are in `assets/ui/type/`. |
 
 [Poly Haven's asset license](https://polyhaven.com/license) covers the downloaded 3D assets and textures. The Steam screenshots were used only for research.
+
+
+The Opening Hours update adds three original grocery prints from `ci/packaging.py`, the procedural Harbor OS wallpaper, the twilight sky treatment and synthesized estate engine sound. The independently rotating wheel assemblies derive from the repository’s original Blender estate source. The high street continues to use the credited materials and characters above.

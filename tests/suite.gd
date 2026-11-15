@@ -64,7 +64,8 @@ func economy() -> void:
 	expect(m.d.cash == 59 and m.level() >= 2 and m.cost_of_sales() == 20,"repeat objective and cost of sales")
 	m.reserve(1,"tea")
 	m.toggle_open()
-	expect(m.reservations.is_empty() and m.d.goods.tea.shelf == 1,"close releases reserved item")
+	expect(m.reservations.has(1) and not m.reserve(2,"tea"),"close retains last basket and blocks new reservations")
+	m.checkout(1)
 	while m.d.cash >= 20: m.order("tea")
 	var cash: int = m.d.cash
 	m.order("tea")
@@ -99,7 +100,7 @@ func line_accounts() -> void:
 	var loaded := Market.new()
 	expect(loaded.restore(JSON.parse_string(JSON.stringify(m.d))) and loaded.on_display("tea") == 2 and loaded.d.queue_lane, "reload returns unpaid baskets and retains upgrade")
 	m.toggle_open()
-	expect(m.reservations.is_empty() and m.on_display("tea") == 2 and m.d.cash == 68, "closure returns every unpaid item")
+	expect(m.reservations.size() == 2 and m.on_display("tea") == 0 and m.d.cash == 68, "closure preserves queued sales")
 	var old := m.d.duplicate(true)
 	old.schema = 2
 	old.erase("queue_lane")
@@ -196,7 +197,14 @@ func integration() -> void:
 		game.interact()
 		match entry[0]:
 			"computer":
-				expect(click_caption(game.ui.stage,"Orders") and click_caption(game.ui.stage,"Order 5"),"shop computer order")
+				expect(click_caption(game.ui.stage,"Market"),"open the wholesale catalogue from desktop")
+				await process_frame
+				await process_frame
+				var bounded := false
+				for control in game.ui.stage.find_children("*","Button",true,false):
+					if control.text == "Desktop": bounded = control.size.y < 65
+				expect(bounded,"desk title bar leaves catalogue and cart visible")
+				expect(click_caption(game.ui.stage,"Add carton") and click_caption(game.ui.stage,"Review order") and click_caption(game.ui.stage,"Place order"),"review and place supplier order")
 				game.ui.hud()
 			"receiving": expect(click_caption(game.ui.stage,"Collect Quayside"),"pickup from receiving")
 			"display": expect(game.ui.screen=="hud" and game.market.d.quantity == 0,"stock carton directly on shop floor")
@@ -218,6 +226,9 @@ func integration() -> void:
 	game.interact()
 	await process_frame
 	await process_frame
+	expect(click_caption(game.ui.stage,"Scan product"),"physical till scan")
+	await process_frame
+	await process_frame
 	var pay_button: Button
 	for control in game.ui.stage.find_children("*","Button",true,false):
 		if control.text.begins_with("Take payment"): pay_button = control
@@ -228,7 +239,7 @@ func integration() -> void:
 	expect(click_caption(game.ui.stage,"Take payment") and game.market.d.receipt==1,"cashier completes customer sale")
 	game.player.position=Vector3(4.6,0.08,-7.1)
 	game.interact()
-	expect(click_caption(game.ui.stage,"Upgrade") and click_caption(game.ui.stage,"Install extension") and game.market.d.expanded,"desk installs upgrade")
+	expect(click_caption(game.ui.stage,"Management") and click_caption(game.ui.stage,"Install extension") and game.market.d.expanded,"desk installs upgrade")
 	game.ui.hud()
 	game.ui.map_view()
 	expect(click_caption(game.ui.stage,"Tide Hotel") and game.waypoint==Vector2(-16,-5),"map waypoint")
@@ -268,9 +279,10 @@ func integration() -> void:
 	expect(game.market.d.receipt==1 and game.market.d.expanded and game.market.d.cash==38,"continue preserves entire paid shift")
 	game.player.position = Vector3(4.6,0.08,-7.1)
 	game.interact()
-	expect(click_caption(game.ui.stage,"Upgrade") and click_caption(game.ui.stage,"Install checkout lane") and game.market.d.cash == 6, "buy checkout lane from computer")
+	expect(click_caption(game.ui.stage,"Management") and click_caption(game.ui.stage,"Install checkout lane") and game.market.d.cash == 6, "buy checkout lane from computer")
 	game.ui.hud()
 	exercise_lane(game)
+	await test_road_and_day(game)
 	game.show_menu()
 	clean(game.slot.path)
 	game.free()
@@ -315,18 +327,108 @@ func exercise_lane(game: Node) -> void:
 	for i in 100: flow.tick(0.05)
 	expect(flow.ready_visit() == second, "next shopper reaches register after head leaves")
 	m.toggle_open()
-	var returned_units := 0
-	for id in m.catalog: returned_units += m.on_display(id)
-	expect(flow.ready_visit() == 0 and returned_units == before_units-1, "closing a live lane clears every hold immediately")
-	for i in 600: flow.tick(0.05)
-	expect(flow.shoppers.is_empty(), "all shoppers exit a closed shop")
-	# Closing mid-arrival, mid-browse and mid-queue must leave no stuck bodies.
+	expect(flow.ready_visit() == second and m.reservations.size() == 2, "last baskets remain payable after closing")
+	for i in 900:
+		flow.tick(0.05)
+		if flow.ready_visit(): flow.serve(flow.ready_visit())
+	expect(flow.shoppers.is_empty() and m.reservations.is_empty(),"last customers pay and leave the closed shop")
 	for cutoff in range(1,44):
+		m = Market.opening_shift()
+		m.d.queue_lane = true
+		flow.reset(m)
 		m.toggle_open()
-		for i in cutoff * 20: flow.tick(0.05)
+		for i in cutoff*20: flow.tick(0.05)
 		m.toggle_open()
-		for i in 700: flow.tick(0.05)
-		expect(flow.shoppers.is_empty() and m.reservations.is_empty(),"close and reopen at shift second "+str(cutoff))
+		for i in 900:
+			flow.tick(0.05)
+			if flow.ready_visit(): flow.serve(flow.ready_visit())
+		expect(flow.shoppers.is_empty() and m.reservations.is_empty(),"closed shop drains at second "+str(cutoff))
+
+
+func test_road_and_day(game: Node) -> void:
+	var m := Market.opening_shift()
+	game.start(m)
+	m.advance_clock(500)
+	expect(m.d.clock == 480,"morning holds while preparing")
+	m.edit_cart("tea",1)
+	m.edit_cart("soap",1)
+	expect(m.order_total(m.d.cart)==38,"mixed cart priced by units per carton")
+	var invalid := {"tea":1,"soap":48}
+	var before := m.d.duplicate(true)
+	m.place_order(invalid)
+	expect(m.d == before,"invalid mixed order moves no stock or money")
+	m.place_order(m.d.cart)
+	expect(m.d.cash==57 and m.d.goods.tea.back==5 and m.d.goods.soap.back==6 and m.d.cart.is_empty(),"single transaction delivers mixed cartons")
+	var freight := Market.new()
+	freight.place_order({"tea":2},true)
+	expect(freight.d.cash==55 and freight.d.goods.tea.back==0 and freight.d.freight=="depot","prepaid pickup waits at depot")
+	var depot_state := freight.d.duplicate(true)
+	freight.transfer_freight("depot")
+	expect(freight.d==depot_state,"loading needs the estate")
+	freight.d.driving = true
+	freight.transfer_freight("depot")
+	var in_transit := Market.new()
+	expect(in_transit.restore(JSON.parse_string(JSON.stringify(freight.d))) and in_transit.d.freight=="estate","cargo survives relaunch")
+	in_transit.transfer_freight("market")
+	in_transit.transfer_freight("market")
+	expect(in_transit.d.goods.tea.back==10 and in_transit.d.cash==59 and in_transit.d.shipment.is_empty(),"unload and freight credit apply once")
+	expect(game.district.loading_bay(Vector3(51,0,9))=="depot" and game.district.loading_bay(Vector3(28,0,9)).is_empty(),"only signed bays transfer cargo")
+	m.toggle_open()
+	m.reserve(99,"soap")
+	m.advance_clock(1200)
+	expect(m.d.clock == 1260 and not m.d.open and not m.can_finish(),"21:00 closes admissions while protecting a basket")
+	m.checkout(99)
+	m.toggle_lights()
+	var dawn := Market.new()
+	expect(dawn.restore(JSON.parse_string(JSON.stringify(m.d))) and not dawn.d.lights and dawn.d.clock==1260,"dark closed shift restores")
+	expect(m.next_day() and not m.next_day() and m.d.day==2 and m.d.clock==480 and m.d.morning[2]==6,"daily settlement is idempotent")
+	m.d.xp = 36
+	m.buy_license()
+	m.order("rice")
+	expect(m.d.dry_goods and m.d.goods.rice.back==5,"licensed groceries reach receiving")
+	m.d.cash = 30
+	m.hire_cashier()
+	m.toggle_open()
+	for i in 1200: game.flow.tick(0.05)
+	expect(m.d.cashier and m.d.receipt>1,"hired cashier serves a live shopper")
+	var road: HarborRoad = game.road
+	game.player.position=Vector3(-4.1,0.09,7.1)
+	game.update_location()
+	game.interact()
+	expect(road.aboard and road.camera.current and not game.player.active,"board parked estate from street")
+	var pads: HarborPedals = game.ui.pedals
+	var boxes := pads.boxes()
+	pads.contact(1,boxes[0].get_center(),true)
+	pads.contact(2,boxes[3].get_center(),true)
+	expect(road.inputs==Vector2(-1,1),"two fingers steer and accelerate independently")
+	pads.contact(2,boxes[3].get_center(),false)
+	expect(road.inputs==Vector2(-1,0),"lifting the accelerator retains steering")
+	pads.release_all()
+	expect(road.inputs==Vector2.ZERO,"pausing clears held pedals")
+	var at := road.estate.position
+	var traffic_at: Vector3 = road.traffic[0].position
+	road.inputs = Vector2(0,1)
+	for i in 90: road._physics_process(1.0/60)
+	expect(road.estate.position.x > at.x+2 and road.estate.wheels.size()==4,"engine drives four animated wheels")
+	expect(road.traffic[0].position.distance_to(traffic_at)>1,"traffic advances along the quay")
+	road.inputs = Vector2(0.55,1)
+	var heading := road.estate.rotation.y
+	for i in 18: road._physics_process(1.0/60)
+	expect(absf(road.estate.rotation.y-heading)>0.02,"steering changes heading while rolling")
+	game.interact()
+	expect(road.aboard,"moving car cannot be exited")
+	game.save_shift()
+	var parked := road.pose()
+	game.resume_shift()
+	expect(road.aboard and road.estate.position.distance_to(Vector3(parked[0],0.045,parked[1]))<0.001,"saved vehicle resumes with driver")
+	game.interact()
+	expect(not road.aboard and game.player.active and game.player.camera.current,"safe exit restores foot controls")
+	m = game.market
+	m.d.clock=1259.0
+	m.advance_clock(2.0)
+	game.district.time_of_day(m.d.clock)
+	expect(game.district.night>0.99 and game.district.street_lights[0].visible,"street lighting follows closing time")
+	await process_frame
 
 func clean(path: String) -> void:
 	for suffix in ["",".tmp",".bak",".writing"]:

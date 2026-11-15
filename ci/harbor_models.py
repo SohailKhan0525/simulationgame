@@ -77,6 +77,21 @@ def loft(name, sections, mat):
     return obj
 
 
+def assembly(objects, name, center):
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in objects:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
+    bpy.ops.object.convert(target='MESH')
+    bpy.ops.object.join()
+    obj = bpy.context.object
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+    bpy.context.scene.cursor.location = center
+    bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
+    obj.name = name
+    return obj
+
+
 def export(name):
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.convert(target='MESH')
@@ -109,6 +124,7 @@ def car():
               (-0.26,0.87,1.0,0.69,1.56),(0.14,0.87,1.0,0.68,1.52),(0.95,0.85,0.99,0.80,1.09)]
     loft("cabin", [[(x,-b,low),(x,b,low),(x,t,high),(x,-t,high)] for x,b,low,t,high in stations],glass)
     block("roof",(-0.67,0,1.54),(1.64,1.35,0.072),paint,0.046)
+    wheels = []
     for side in [-1,1]:
         for x,b,low,t,high in [stations[1],stations[3],stations[4]]:
             rod("window pillar",(x,side*(b+0.007),low),(x,side*(t+0.009),high),0.029,0.025,rubber,8)
@@ -122,6 +138,7 @@ def car():
         block("mirror",(0.48,side*1.0,1.12),(0.22,0.22,0.125),paint,0.047)
         rod("roof rail",(-1.44,side*0.55,1.61),(0.03,side*0.55,1.61),0.023,0.023,wheel)
         for x in [-1.37,1.38]:
+            previous = set(bpy.context.scene.objects)
             y=side*0.911
             rod("tire",(x,y-side*0.103,0.365),(x,y+side*0.081,0.365),0.356,0.356,rubber,40)
             rod("wheel well",(x,y+side*0.084,0.365),(x,y+side*0.091,0.365),0.258,0.251,wheel,40)
@@ -131,6 +148,9 @@ def car():
                 rod("alloy spoke",(x+0.047*math.cos(a),y+side*0.104,0.365+0.047*math.sin(a)),
                     (x+0.218*math.cos(a+0.18),y+side*0.103,0.365+0.218*math.sin(a+0.18)),0.022,0.017,wheel,5)
             rod("hub",(x,y+side*0.102,0.365),(x,y+side*0.12,0.365),0.061,0.061,wheel,20)
+            wheel_name = "Wheel_" + ("F" if x > 0 else "R") + ("L" if side > 0 else "R")
+            pieces = sorted(set(bpy.context.scene.objects)-previous, key=lambda obj: obj.name)
+            wheels.append(assembly(pieces, wheel_name, (x,y,0.365)))
         block("front lamp",(2.14,side*0.606,0.724),(0.07,0.34,0.115),lamp,0.034)
         block("tail lamp",(-2.146,side*0.653,0.86),(0.075,0.29,0.14),red,0.029)
     block("front intake",(2.206,0,0.57),(0.032,0.95,0.20),rubber)
@@ -138,7 +158,12 @@ def car():
         block("grille blade",(2.227,0,z),(0.018,0.88,0.012),wheel,0)
     for x in [-2.187,2.235]:
         block("plate",(x,0,0.64),(0.022,0.43,0.108),lamp,0.008)
-    export("quayside_estate")
+    body = assembly([o for o in bpy.context.scene.objects if o not in wheels], "Coachwork", (0,0,0))
+    for wheel_obj in wheels:
+        wheel_obj.parent = body
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.export_scene.gltf(filepath=str(OUT/"quayside_estate.glb"), export_format="GLB",
+                              use_selection=True, export_animations=False, export_lights=False, export_cameras=False)
 
 
 def tree():
@@ -171,4 +196,5 @@ def tree():
 
 
 car()
-tree()
+if "--car-only" not in __import__("sys").argv:
+    tree()

@@ -1,5 +1,50 @@
 {
-  "tea": {"name":"Quayside tea","category":"Pantry","cost":4,"price":8,"pack":5,"color":"c87850"},
-  "soap":{"name":"Olive soap","category":"Household","cost":3,"price":6,"pack":6,"color":"7eac91"},
-  "cocoa":{"name":"Night ferry cocoa","category":"Pantry","cost":6,"price":11,"pack":4,"color":"aa7992"}
+  "tea": {
+    "name": "Quayside tea",
+    "category": "Pantry",
+    "cost": 4,
+    "price": 8,
+    "pack": 5,
+    "color": "c87850"
+  },
+  "soap": {
+    "name": "Olive soap",
+    "category": "Household",
+    "cost": 3,
+    "price": 6,
+    "pack": 6,
+    "color": "7eac91"
+  },
+  "cocoa": {
+    "name": "Night ferry cocoa",
+    "category": "Pantry",
+    "cost": 6,
+    "price": 11,
+    "pack": 4,
+    "color": "aa7992"
+  },
+  "oats": {
+    "name": "Millhouse oats",
+    "category": "Dry goods",
+    "cost": 3,
+    "price": 6,
+    "pack": 6,
+    "color": "d0aa71"
+  },
+  "pasta": {
+    "name": "Tidewheel pasta",
+    "category": "Dry goods",
+    "cost": 4,
+    "price": 8,
+    "pack": 5,
+    "color": "b67938"
+  },
+  "rice": {
+    "name": "Lantern rice",
+    "category": "Dry goods",
+    "cost": 3,
+    "price": 7,
+    "pack": 5,
+    "color": "a7bba1"
+  }
 }

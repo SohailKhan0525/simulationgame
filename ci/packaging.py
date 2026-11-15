@@ -1,4 +1,4 @@
-"""Draw the three fictional product labels and their market posters at print resolution."""
+"""Draw the fictional product labels and their market posters at print resolution."""
 import math
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -20,7 +20,10 @@ def sprig(draw, x,y, scale, fg):
 
 products=[('tea','QUAYSIDE','TEA','CEYLON BLEND','203e36','e7d4a5','ae7b39'),
           ('soap','OLIVE GROVE','SOAP','BOTANICAL BAR','e8ddbc','254941','77825a'),
-          ('cocoa','NIGHT FERRY','COCOA','DARK DRINKING CHOCOLATE','74392f','f5ddad','cca257')]
+          ('cocoa','NIGHT FERRY','COCOA','DARK DRINKING CHOCOLATE','74392f','f5ddad','cca257'),
+          ('oats','MILLHOUSE','OATS','ROLLED WHOLEGRAIN','debb84','433b2e','906e43'),
+          ('pasta','TIDEWHEEL','PASTA','DURUM WHEAT • FUSILLI','aa642f','fff0d0','dfb66c'),
+          ('rice','LANTERN','RICE','LONG GRAIN','aabd9e','243d34','718969')]
 for key,brand,name,line,bg,fg,accent in products:
     bg,fg,accent=['#'+c for c in (bg,fg,accent)]
     im=Image.new('RGB',(384,480),bg);d=ImageDraw.Draw(im)
@@ -31,6 +34,17 @@ for key,brand,name,line,bg,fg,accent in products:
         for off in [-28,0,28]:
             d.arc((100+off,115,241+off,249),-65,126,fill=accent,width=5)
         d.line((126,242,264,140),fill=fg,width=3)
+    elif key=='pasta':
+        for i in range(7):
+            x=129+i*17
+            d.arc((x,140,x+37,216),-68,200,fill=fg,width=6)
+    elif key in ('oats','rice'):
+        for offset in [-23, 10, 40]:
+            d.line((169+offset,235,202+offset,137),fill=fg,width=3)
+            for i in range(5):
+                x,y=172+offset+i*5,214-i*15
+                d.ellipse((x-12,y-12,x,y+2),fill=accent)
+                d.ellipse((x+3,y-7,x+16,y+4),fill=fg)
     else:
         sprig(d,193,183,1.28,fg)
     d.text((192,301),name,font=font(76,True,True),fill=fg,anchor='mm')
