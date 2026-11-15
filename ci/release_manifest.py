@@ -38,6 +38,8 @@ if mode == "release":
             sys.exit("Unexpected previous stable release tag")
         with urllib.request.urlopen(f"{page}/download/{previous_tag}/manifest.json", timeout=15) as response:
             previous = json.load(response)
-        if manifest["versionCode"] <= previous["versionCode"] or cert != previous["signerSha256"]:
+        old_version = tuple(map(int, previous_tag[1:].split(".")))
+        new_version = tuple(map(int, version.split(".")))
+        if new_version <= old_version or manifest["versionCode"] <= previous["versionCode"] or cert != previous["signerSha256"]:
             sys.exit("Stable APK requires increasing versionCode and the original signer")
 (root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

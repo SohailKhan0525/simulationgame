@@ -9,4 +9,5 @@ check() {
 }
 check --editor --import
 check --quit-after 5
-if [[ -f tests/suite.gd ]]; then check --script res://tests/suite.gd; fi
+check --script res://tests/suite.gd
+check --script res://tests/conservation.gd

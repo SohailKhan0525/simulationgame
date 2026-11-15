@@ -12,12 +12,15 @@ case "$mode" in
     name+="-internal"
     package+=.internal
     sed -i "s/com.qofeno.simulation\"/$package\"/" export_presets.cfg
-    trap 'sed -i "s/com.qofeno.simulation.internal\"/com.qofeno.simulation\"/" export_presets.cfg' EXIT
-    export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$RUNNER_TEMP/qofeno-debug.keystore"
-    export GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android
-    if [[ ! -f "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" ]]; then
-      keytool -genkeypair -noprompt -keystore "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Qofeno Internal"
-    fi
+    key_dir=$(mktemp -d "$RUNNER_TEMP/qofeno-key.XXXXXX")
+    trap 'sed -i "s/com.qofeno.simulation.internal\"/com.qofeno.simulation\"/" export_presets.cfg; rm -f "$key_dir/debug.keystore"; rmdir "$key_dir"' EXIT
+    export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$key_dir/debug.keystore"
+    export GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey
+    GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=$(python3 -c 'import secrets; print(secrets.token_hex(24))')
+    export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
+    keytool -genkeypair -noprompt -keystore "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" \
+      -storepass:env GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD -keypass:env GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD \
+      -alias "$GODOT_ANDROID_KEYSTORE_DEBUG_USER" -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Qofeno Internal"
     ;;
   release)
     [[ "${GITHUB_REF_NAME:-}" == "v$version" ]] || { echo 'Tag must match project version'; exit 1; }

@@ -18,7 +18,7 @@ test -s "$ANDROID_AVD_HOME/harbor.avd/config.ini"
 printf 'avd.ini.encoding=UTF-8\npath=%s\ntarget=android-35\n' "$ANDROID_AVD_HOME/harbor.avd" > "$ANDROID_AVD_HOME/harbor.ini"
 "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx harbor
 sudo chmod a+rw /dev/kvm
-"$ANDROID_HOME/emulator/emulator" -avd harbor -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -cores 2 -memory 2500 > "$out/emulator.log" 2>&1 &
+"$ANDROID_HOME/emulator/emulator" -avd harbor -no-window -no-audio -no-boot-anim -no-snapshot -gpu "${QOFENO_EMULATOR_GPU:-lavapipe}" -cores 2 -memory 2500 > "$out/emulator.log" 2>&1 &
 emulator=$!
 trap 'status=$?; if (( status != 0 )); then "$adb" logcat -d -t 3000 > "$out/logcat.txt" 2>/dev/null || true; tail -50 "$out/emulator.log"; fi; kill "$emulator" 2>/dev/null || true' EXIT
 for _ in {1..90}; do
