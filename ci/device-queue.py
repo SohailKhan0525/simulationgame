@@ -37,17 +37,18 @@ def control(word, filename, box=(0,0,1,1), tap=True):
         crop = crop.resize((crop.width*2,crop.height*2))
         stream = io.BytesIO()
         crop.save(stream,format="PPM")
-        ocr = subprocess.run(["tesseract","stdin","stdout","--psm","11","tsv"],
-                             input=stream.getvalue(),capture_output=True,timeout=10,check=True)
-        rows = csv.DictReader(io.StringIO(ocr.stdout.decode()),delimiter="\t")
-        for row in rows:
-            if row["text"].strip(".,·").casefold() != word.casefold(): continue
-            point=(left+(int(row["left"])+int(row["width"])//2)//2,
-                   top+(int(row["top"])+int(row["height"])//2)//2)
-            (out/filename).write_bytes(data)
-            if tap: shell("input","tap",*map(str,point))
-            print(f"Rendered {word} at {point}",flush=True)
-            return point
+        for mode in ("11","7","6"):
+            ocr = subprocess.run(["tesseract","stdin","stdout","--psm",mode,"tsv"],
+                                 input=stream.getvalue(),capture_output=True,timeout=10,check=True)
+            rows = csv.DictReader(io.StringIO(ocr.stdout.decode()),delimiter="\t")
+            for row in rows:
+                if row["text"].strip(".,·").casefold() != word.casefold(): continue
+                point=(left+(int(row["left"])+int(row["width"])//2)//2,
+                       top+(int(row["top"])+int(row["height"])//2)//2)
+                (out/filename).write_bytes(data)
+                if tap: shell("input","tap",*map(str,point))
+                print(f"Rendered {word} at {point}",flush=True)
+                return point
         (out/filename).write_bytes(data)
         time.sleep(0.7)
     raise AssertionError(f"Could not locate {word} in {filename}")
@@ -123,21 +124,21 @@ def background():
 
 
 stage([4.5,0.08,-7.1],575.0)
-control("desk","desk-interaction.png",(.77,.83,1,1))
-control("Market","workstation.png",(0,0,.31,.62))
-control("Add","wholesale.png",(.38,.20,.77,.96))
-control("Household","mixed-order.png",(0,.12,.72,.53))
-control("Add","soap-order.png",(.38,.20,.77,.96))
-control("Review","supplier-cart.png",(.62,.60,1,1))
-control("Place","purchase-review.png",(.05,.25,.75,.96))
-control("Ledger","supplier-paid.png",(0,0,.52,.18),False)
+control("desk","desk-interaction.png",(.79,.878,.981,.956))
+control("Market","workstation.png",(.028,.195,.15,.266))
+control("Add","wholesale.png",(.57,.352,.68,.445))
+control("Household","mixed-order.png",(.174,.245,.282,.32))
+control("Add","soap-order.png",(.57,.352,.68,.445))
+control("Review","supplier-cart.png",(.72,.869,.955,.946))
+control("Place","purchase-review.png",(.13,.40,.25,.62))
+control("Ledger","supplier-paid.png",(.131,.04,.35,.126),False)
 order = background()
 assert order["cash"] == 29 and order["goods"]["tea"]["back"]==5 and order["goods"]["soap"]["back"]==6, order
 assert order["last_order"] == {"tea":1,"soap":1} and not order["cart"], order
 
 stage([-4.1,0.08,7.1],1180.0)
-control("estate","estate-door.png",(.75,.83,1,1))
-x,y=control("Drive","drive-estate.png",(.80,.72,1,1),False)
+control("estate","estate-door.png",(.79,.878,.981,.956))
+x,y=control("Drive","drive-estate.png",(.885,.835,.979,.918),False)
 shell("input","swipe",str(x),str(y),str(x),str(y),"1950")
 vehicle=background()
 assert vehicle["driving"] and vehicle["van"][0] > -3.4, vehicle
@@ -145,13 +146,13 @@ assert vehicle["driving"] and vehicle["van"][0] > -3.4, vehicle
 shell("am","force-stop",package)
 launch()
 screen("Continue","drive-relaunch.png",True)
-control("out","drive-restored.png",(.79,.59,1,.82))
+control("out","drive-restored.png",(.86,.681,.98,.766))
 assert not background()["driving"]
 
 stage([2.17,0.08,0.9],1259.5)
-control("sign","evening-sign.png",(.75,.82,1,1))
-control("Review","closing-time.png",(.61,.20,.99,.93))
-control("Start","daily-report.png",(.07,.26,.91,1))
+control("sign","evening-sign.png",(.79,.878,.981,.956))
+control("Review","closing-time.png",(.64,.442,.96,.521))
+control("Start","daily-report.png",(.12,.552,.88,.634))
 screen("Pause","next-morning.png")
 morning=background()
 assert morning["day"]==2 and morning["clock"]==480 and not morning["open"] and morning["cash"]==67, morning
