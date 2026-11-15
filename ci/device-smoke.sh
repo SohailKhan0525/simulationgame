@@ -76,5 +76,5 @@ launch
 /usr/bin/python3 ci/device-screen.py "Pause" build/device/continued-shift.png
 "$adb" shell pidof "$package"
 kill "$log_pid" 2>/dev/null || true
-if grep -E 'SCRIPT ERROR:|FATAL EXCEPTION:|Fatal signal [0-9]+.*qofeno|E godot *:.*ERROR:' "$out/logcat.txt"; then exit 1; fi
+if grep -E 'ANR in com\.qofeno\.simulation|SCRIPT ERROR:|FATAL EXCEPTION:|Fatal signal [0-9]+.*qofeno|E godot *:.*ERROR:' "$out/logcat.txt"; then exit 1; fi
 "$adb" shell getprop ro.build.fingerprint > build/device/fingerprint.txt

@@ -2,10 +2,12 @@
 import csv
 import io
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 from PIL import Image, ImageOps
 
 
@@ -57,10 +59,34 @@ def locate(frame, word):
     return None
 
 
+def close_system_launcher_dialog(adb):
+    # The stock AVD launcher can time out during its first indexing pass. Only
+    # dismiss that exact process's system dialog. Game ANRs must fail the test.
+    windows = subprocess.check_output([adb, "shell", "dumpsys", "window"],
+                                      text=True, timeout=10)
+    if not any("mCurrentFocus=" in line and "Application Not Responding: com.android.launcher3}" in line
+               for line in windows.splitlines()):
+        return
+    remote = "/data/local/tmp/qofeno-qa-window.xml"
+    subprocess.run([adb, "shell", "uiautomator", "dump", remote],
+                   capture_output=True, check=True, timeout=15)
+    layout = ET.fromstring(subprocess.check_output([adb, "exec-out", "cat", remote], timeout=10))
+    for node in layout.iter("node"):
+        if node.get("package") != "android" or node.get("text") != "Close app":
+            continue
+        coordinates = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.get("bounds", ""))
+        if coordinates:
+            x1, y1, x2, y2 = map(int, coordinates.groups())
+            subprocess.run([adb, "shell", "input", "tap", str((x1+x2)//2), str((y1+y2)//2)],
+                           check=True, timeout=10)
+            print("Closed the AVD system launcher's ANR dialog", flush=True)
+            return
+
+
 def main():
     word, dest, *action = sys.argv[1:]
     adb = str(Path(os.environ["ANDROID_HOME"]) / "platform-tools/adb")
-    for _ in range(22):
+    for attempt in range(22):
         frame = subprocess.check_output([adb, "exec-out", "screencap", "-p"], timeout=20)
         Path(dest).write_bytes(frame)
         point = locate(Image.open(io.BytesIO(frame)).convert("RGB"), word)
@@ -69,6 +95,8 @@ def main():
             if action == ["tap"]:
                 subprocess.run([adb, "shell", "input", "tap", *map(str, point)], timeout=10, check=True)
             return
+        if attempt % 4 == 2:
+            close_system_launcher_dialog(adb)
         time.sleep(2)
     raise SystemExit(f"Could not find {word!r} on the installed APK screen")
 
