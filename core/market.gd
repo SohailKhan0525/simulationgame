@@ -24,7 +24,7 @@ func _init() -> void:
 	d = {"schema": SCHEMA, "cash": 95, "xp": 0, "open": false, "expanded": false, "queue_lane": false,
 		"revenue": 0, "spend": 0, "receipt": 0, "clock": OPENING, "day": 1, "started": false, "lights": true,
 		"morning": [95, 0, 0, 0], "van": PARK.duplicate(), "driving": false, "deliveries": 0,
-		"dry_goods": false, "cashier": false, "last_order": {}, "cart": {}, "pos": [-2.14, 0.1, 7.1],
+		"shipment": {}, "freight": "", "dry_goods": false, "cashier": false, "last_order": {}, "cart": {}, "pos": [-2.14, 0.1, 7.1],
 		"yaw": -0.29, "flags": {}, "log": [], "carry": "", "quantity": 0, "goods": {}}
 	for id in catalog:
 		d.goods[id] = {"back": 0, "shelf": 0, "sold": 0, "price": int(catalog[id].price)}
@@ -94,16 +94,43 @@ func order_error(cart: Dictionary) -> String:
 	if total > d.cash: return "Insufficient funds."
 	for id in cart:
 		if not licensed(id): return "Purchase the dry goods licence first."
-		if d.goods[id].back + cart[id] * catalog[id].pack > 48:
+		if d.goods[id].back + (cart[id] + int(d.shipment.get(id,0))) * catalog[id].pack > 48:
 			return "Receiving is full for %s." % catalog[id].name
 	return ""
 
-func place_order(cart: Dictionary) -> String:
+func pickup_error(cart: Dictionary) -> String:
 	var issue := order_error(cart)
 	if issue != "": return issue
+	if not d.shipment.is_empty(): return "Complete your current pickup first."
+	var cartons := 0
+	for quantity in cart.values(): cartons += int(quantity)
+	return "The estate holds four cartons." if cartons > 4 else ""
+
+func transfer_freight(where: String) -> String:
+	if not d.driving or d.shipment.is_empty(): return "No supplier pickup is ready."
+	if where == "depot" and d.freight == "depot":
+		d.freight = "estate"
+		changed.emit()
+		return "Cartons loaded. Return to the Harbor Market curb."
+	if where == "market" and d.freight == "estate":
+		for id in d.shipment: d.goods[id].back += int(d.shipment[id]*catalog[id].pack)
+		d.shipment = {}
+		d.freight = ""
+		d.cash += 4
+		changed.emit()
+		return "Stock unloaded to receiving. Freight credit +$4."
+	return "Visit the marked loading bay."
+
+func place_order(cart: Dictionary, pickup := false) -> String:
+	var issue := pickup_error(cart) if pickup else order_error(cart)
+	if issue != "": return issue
 	var total := order_total(cart)
-	for id in cart:
-		d.goods[id].back += int(cart[id] * catalog[id].pack)
+	if pickup:
+		d.shipment = cart.duplicate()
+		d.freight = "depot"
+	else:
+		for id in cart:
+			d.goods[id].back += int(cart[id] * catalog[id].pack)
 	d.cash -= total
 	d.spend += total
 	d.deliveries += 1
@@ -111,6 +138,7 @@ func place_order(cart: Dictionary) -> String:
 	d.cart = {}
 	mark("order")
 	changed.emit()
+	if pickup: return "Pickup %03d is ready at East Pier Wholesale." % d.deliveries
 	return "Delivery %03d received at the front pallet." % d.deliveries
 
 func edit_cart(id: String, delta: int) -> void:
@@ -315,6 +343,9 @@ func restore(raw: Variant) -> bool:
 			s.clock = clampf(s.clock, OPENING, CLOSING) if s.started else OPENING
 			if s.clock == CLOSING: s.open = false
 		s.schema = SCHEMA
+	if not s.has("shipment") and not s.has("freight"):
+		s.shipment = {}
+		s.freight = ""
 	s.schema = int(s.schema)
 	for k in ["cash", "xp", "revenue", "spend", "receipt", "quantity"]:
 		if not whole(s.get(k), 0): return false
@@ -355,7 +386,7 @@ func restore(raw: Variant) -> bool:
 		if not whole(number, 0): return false
 	if s.morning[1] > s.receipt or s.morning[2] > s.revenue or s.morning[3] > s.spend: return false
 	if s.open and (not s.started or s.clock >= CLOSING): return false
-	for key in ["cart", "last_order"]:
+	for key in ["cart", "last_order","shipment"]:
 		if not s.get(key) is Dictionary or order_total(s[key]) < 0: return false
 	if not s.get("van") is Array or s.van.size() != 3: return false
 	for val in s.van:
@@ -364,10 +395,16 @@ func restore(raw: Variant) -> bool:
 	s.day = int(s.day)
 	s.deliveries = int(s.deliveries)
 	for i in s.morning.size(): s.morning[i] = int(s.morning[i])
-	for key in ["cart","last_order"]:
+	for key in ["cart","last_order","shipment"]:
 		for id in s[key]:
 			if catalog[id].category == "Dry goods" and not s.dry_goods: return false
 			s[key][id] = int(s[key][id])
+	if not s.get("freight") in ["","depot","estate"] or (s.freight == "") != s.shipment.is_empty(): return false
+	var cargo := 0
+	for id in s.shipment:
+		cargo += int(s.shipment[id])
+		if int(s.goods[id].back+s.shipment[id]*catalog[id].pack)>54: return false
+	if cargo>4: return false
 	d = s
 	reservations.clear()
 	return true

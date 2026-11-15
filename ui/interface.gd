@@ -219,6 +219,9 @@ func hud() -> void:
 	anchor(interact,1,1,1,1,Rect2(-215,-70,199,51))
 	if app.road.aboard:
 		anchor(interact,1,1,1,1,Rect2(-137,-174,119,49))
+		var transfer := button(stage,"Load cartons",app.handle_freight,true)
+		transfer.name = "Freight"
+		anchor(transfer,1,1,1,1,Rect2(-324,-174,177,49))
 	var run := quiet_button(stage,"Run",func(): app.player.running = not app.player.running; refresh())
 	run.name = "Pace"
 	run.visible = not app.road.aboard
@@ -258,6 +261,12 @@ func refresh() -> void:
 		hud_task.text = "%02d km/h   ·   Quay Road" % roundi(absf(app.road.estate.speed)*3.6)
 		interact.visible = true
 		interact.text = "Get out"
+		var freight := stage.get_node("Freight") as Button
+		var bay: String = app.district.loading_bay(app.road.estate.position)
+		freight.visible = (bay=="depot" and m.d.freight=="depot") or (bay=="market" and m.d.freight=="estate")
+		freight.text = "Load cartons" if bay=="depot" else "Unload cartons"
+		if m.d.freight=="depot": hud_task.text += "   /   East Pier Wholesale →"
+		if m.d.freight=="estate": hud_task.text += "   /   Return to Harbor Market"
 		return
 	hud_task.text = m.objective() if app.prefs.values.hints else "Harbor District"
 	if minutes >= Market.CLOSING: hud_task.text = "Closing time · Finish trading at the door sign"
@@ -481,7 +490,8 @@ func world_action(action: Callable) -> void:
 func map_view() -> void:
 	sheet("map","HARBOR DISTRICT","Waterfront map",hud)
 	var map := HarborAtlas.new()
-	map.places = app.directory.entries
+	map.places = app.directory.entries.duplicate()
+	map.places.append({"name":"East Pier Wholesale","x":District.DEPOT.x,"z":5.0,"playable":false,"supplier":true})
 	map.player_pos = app.road.estate.position if app.road.aboard else app.player.position
 	map.target = app.waypoint
 	map.car_pos = app.road.estate.position
@@ -489,7 +499,7 @@ func map_view() -> void:
 	body.add_child(map)
 	text(body,"White dot · You      Blue car · Estate      Copper ring · Destination",15,MUTED)
 	for place in map.places:
-		button(body,place.name + ("   ·   Your shop" if place.playable else "   ·   Future premises"),func():
+		button(body,place.name + ("   ·   Loading bay" if place.get("supplier",false) else ("   ·   Your shop" if place.playable else "   ·   Future premises")),func():
 			app.waypoint = Vector2(place.x,place.z)
 			map.target = app.waypoint
 			map.queue_redraw())

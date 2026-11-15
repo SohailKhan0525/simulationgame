@@ -90,12 +90,14 @@ print("Android till recorded two touch payments, $67 cash and two remaining tea 
 
 # Separate staged views of the installed APK using the same private QA slot.
 # The seed is confined to the emulator. Nothing is added to the shipping game.
-for name, pos, yaw in [
-        ("waterfront-street", [-0.4,0.08,13.35], 0.68),
-        ("pantry-display", [-4.42,0.08,-5.13], 0.0)]:
+for name, pos, yaw, clock in [
+        ("waterfront-street", [-0.4,0.08,13.35], 0.68,565.0),
+        ("pantry-display", [-4.42,0.08,-5.13], 0.0,565.0),
+        ("quay-sunset",[-7.1,0.08,15.9],-0.35,1078.0),
+        ("quay-night",[-7.1,0.08,15.9],-0.35,1250.0)]:
     shell("am", "force-stop", package)
     scene = json.loads(raw)
-    scene.update(pos=pos, yaw=yaw, open=False, clock=565.0)
+    scene.update(pos=pos, yaw=yaw, open=False, clock=clock)
     for key in ("tea","cocoa","soap"):
         scene["goods"][key]["shelf"] = 5
     shell("run-as", package, "tee", slot, input=json.dumps(scene).encode(), stdout=subprocess.DEVNULL)

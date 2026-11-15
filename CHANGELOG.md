@@ -5,7 +5,7 @@
 - Trade from 08:00 to 21:00 with a sunset, streetlamps, shop light switch and closing statement. Start the next day with your stock and cash.
 - Operate a desktop with Market, Pricing, Management and Ledger. Build mixed-carton orders, inspect the receipt, hire a cashier and unlock three dry groceries.
 - Scan items, accept cards and count cash change. Finish serving queued shoppers after the doors close.
-- Drive the estate on Quay Road with touch controls, headlamps and persistent parking. Four other cars circulate and yield.
+- Drive the estate on Quay Road with touch controls, headlamps and persistent parking. Four other cars circulate and yield. Collect up to four prepaid cartons at East Pier Wholesale and unload them at the shop for a $4 freight credit.
 - Schema 4 migrates existing shifts. The Android internal package uses a per-build debug signer.
 
 

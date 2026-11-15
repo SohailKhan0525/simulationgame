@@ -75,6 +75,15 @@ func _ready() -> void:
 	boat(13,30,-0.21)
 	bake()
 
+const DEPOT := Vector3(52,0,8.85)
+const MARKET_BAY := Vector3(-4.1,0,8.85)
+
+func loading_bay(p: Vector3) -> String:
+	if absf(p.z-8.85)>2.35: return ""
+	if absf(p.x-DEPOT.x)<4.3: return "depot"
+	if absf(p.x-MARKET_BAY.x)<4.3: return "market"
+	return ""
+
 func waterfront() -> void:
 	# Extend the view beyond the collision boundary with a bend and a terminating
 	# row of buildings. The road stays connected all the way to the skyline.
@@ -106,6 +115,20 @@ func waterfront() -> void:
 	for x in range(-74,75,2):
 		box(x,-0.006,4,0.027,0.02,8,"a59a88")
 		box(x,-0.006,19.7,0.03,0.02,5,"a59a88")
+	for x in [MARKET_BAY.x,DEPOT.x]:
+		for dx in [-3.3,3.3]:
+			box(x+dx,0.034,9.05,0.12,0.018,1.05,"e6bd70")
+		box(x,0.034,8.62,6.6,0.018,0.105,"e6bd70")
+	box(DEPOT.x,2.71,0.69,8.7,0.77,0.22,TEAL)
+	label3("EAST PIER  •  WHOLESALE",Vector3(DEPOT.x,2.71,0.82),0.36,CREAM)
+	part("steel",Vector3(DEPOT.x,1.13,0.5),Vector3(3.7,2.2,0.16),"747e7d")
+	for i in 15: box(DEPOT.x,0.18+i*0.14,0.599,3.65,0.018,0.02,"4e5c5c")
+	for i in 5:
+		var cx := DEPOT.x+2.6+float(i%2)*0.85
+		var cy := 0.33+floori(i/2.0)*0.62
+		box(cx,cy,1.45,0.82,0.6,0.88,"b99771")
+		box(cx,cy+0.304,1.45,0.10,0.016,0.88,"d2be99")
+	solid(Vector3(DEPOT.x+3.02,0.81,1.45),Vector3(1.7,1.6,0.93))
 	box(0,-0.5,58,160,0.4,72,"558c92")
 	for i in 46:
 		box((i*17)%105-52,-0.282,24+(i*11)%51,1.4+i%5,0.01,0.06,"81a8a4")

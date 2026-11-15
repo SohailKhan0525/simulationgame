@@ -1,7 +1,7 @@
 # Current limitations
 
 - One owned shop, six products, a daily cashier contract, two fixture upgrades and up to three shoppers. Each shopper buys one unit. Free placement, online customer delivery, theft, multiplayer and a city-wide supplier network remain outside this release.
-- Quay Road is a single waterfront street. Four traffic cars follow its two lanes. The estate supports driving, parking and save restoration. Fuel, freight, vehicle dealing, damage and repair remain open.
+- Quay Road is a single waterfront street. Four traffic cars follow its two lanes. The estate supports driving, parking and save restoration. One local supplier accepts collections. Fuel, vehicle dealing, damage and repair remain open.
 - The sunset sky and shop lamps run in the compatibility renderer. The evening sky uses a single twilight model. Character outfits, face variety and task animations still need work.
 - Routes and queue marks are authored for this floor plan. Shoppers yield to one another. Freeform fixture placement, avoidance of the player and district-wide crowd navigation remain open.
 - A shopper in progress restarts after a reload. Unpaid baskets keep their units on the shelf. Paid receipts persist.

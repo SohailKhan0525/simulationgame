@@ -27,6 +27,7 @@ Run Harbor Market on Quay Road. Prepare before 08:00 opening, order supplies at 
 | Reinvest | At the computer, review receipts, set prices, and install the $45 display extension after the first sale. The $32 checkout lane admits up to three shoppers. Each chooses a product at its current price, then waits their turn. Every fifth sale awards a $5 trading bonus. |
 | Hire and license | In Management, hire a cashier for $12 for the current day after your first sale. At level 2, the $36 dry goods licence adds oats, pasta, rice and their display. |
 | Drive | Walk up to the blue estate outside the market. Tap Drive estate. Steer with the left controls, use Drive or Brake / R with the right thumb, then stop and tap Get out. |
+| Collect by car | During order review, choose Collect by car for up to four cartons. Stop in the marked bay at East Pier Wholesale, load the estate, then unload at Harbor Market for a $4 freight credit. |
 | Close | Use the door sign to switch the lights or close early. At 21:00, finish serving and return to the sign. Review and finish day shows the totals. Start the next day to return to 08:00. |
 | Save and explore | Pause → Save now. Map shows your position and destination. Earnings and stock mutations save after each completed action. |
 

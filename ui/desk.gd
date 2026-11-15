@@ -111,7 +111,10 @@ func window() -> void:
 			ui.text(body,"Day %d   /   Trading accounts" % m.d.day,25,INK,true)
 			ui.text(body,"Today’s sales  $%d     •     Today’s stock purchases  $%d" % [m.d.revenue-m.d.morning[2],m.d.spend-m.d.morning[3]],20,SUB)
 			ui.text(body,"Lifetime sales  $%d     •     Gross profit  $%d" % [m.d.revenue,m.d.revenue-m.cost_of_sales()],18,SUB)
-			ui.text(body,"Last supplier delivery",21,INK,true)
+			if m.d.freight != "":
+				ui.text(body,"Active collection",21,INK,true)
+				ui.text(body,"Drive to East Pier Wholesale, east along Quay Road." if m.d.freight == "depot" else "Cartons on board. Unload in the Harbor Market bay.",17,SUB)
+			ui.text(body,"Last supplier order",21,INK,true)
 			if m.d.last_order.is_empty(): ui.text(body,"No supplier receipt yet.",17,SUB)
 			else:
 				ui.text(body,"Delivery %03d    /    $%d" % [m.d.deliveries,m.order_total(m.d.last_order)],18,INK)
@@ -183,11 +186,15 @@ func review(body: Control) -> void:
 	ui.text(body,issue if issue != "" else "Balance after delivery   $%d" % (m.d.cash-due),18,SUB)
 	var actions := ui.row(body)
 	ui.button(actions,"Edit cart",ui.terminal.bind("Market"))
-	ui.button(actions,"Place order",submit,true).disabled = issue != ""
+	ui.button(actions,"Place order",submit.bind(false),true).disabled = issue != ""
+	var pickup_issue := m.pickup_error(m.d.cart)
+	ui.button(actions,"Collect by car",submit.bind(true)).disabled = pickup_issue != ""
+	ui.text(body,pickup_issue if pickup_issue != "" else "Optional pickup · Park at East Pier Wholesale and bring the cartons back for a $4 freight credit.",16,SUB)
 
-func submit() -> void:
+func submit(pickup: bool) -> void:
 	if current != "Cart" or not m.order_error(m.d.cart).is_empty(): return
-	var message := m.place_order(m.d.cart)
+	if pickup and not m.pickup_error(m.d.cart).is_empty(): return
+	var message := m.place_order(m.d.cart,pickup)
 	ui.terminal("Ledger")
 	ui.toast(message)
 

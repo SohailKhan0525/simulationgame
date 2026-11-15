@@ -205,9 +205,19 @@ func drive_estate() -> void:
 		road.update_camera(1.0)
 		road.camera.current = true
 	road.aboard = not road.aboard
+	market.d.driving = road.aboard
 	road.set_lighting(district.night)
 	ui.hud()
 	update_location()
+	save_shift(true)
+
+func handle_freight() -> void:
+	if not road.aboard or ui.screen != "hud": return
+	if absf(road.estate.speed)>0.75:
+		ui.toast("Stop inside the loading bay.")
+		return
+	var result := market.transfer_freight(district.loading_bay(road.estate.position))
+	ui.toast(result)
 	save_shift(true)
 
 func interact() -> void:

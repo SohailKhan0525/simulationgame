@@ -11,4 +11,4 @@ Harbor Market implements ordering, receiving, shelf stocking, customer visits, c
 
 ## Following Opening Hours
 
-Work on shop-floor depth comes first. Add multi-item shopping lists and physical carton placement, then custom fixture layout and offline customer deliveries. Extend the estate into a useful freight vehicle with local supplier pickup. Follow with district vehicle ownership, fuel and dealership trading. The gaming store, restaurant and hotel remain future operators. Physical Android profiling and persistent release signing remain prerequisites for a stable public build.
+Work on shop-floor depth comes first. Add multi-item shopping lists and physical carton placement, then custom fixture layout and offline customer deliveries. Extend East Pier freight pickups to additional suppliers and customer drop-offs. Follow with district vehicle ownership, fuel and dealership trading. The gaming store, restaurant and hotel remain future operators. Physical Android profiling and persistent release signing remain prerequisites for a stable public build.

@@ -36,7 +36,8 @@
     "sunset_and_night_lights",
     "road_traffic",
     "drive_park_save",
-    "schema_4_migration"
+    "schema_4_migration",
+    "east_pier_carton_pickups"
   ],
   "verified_build": {
     "source_commit": "75730294c4977a7958c9cb87c29568dfa522cf80",

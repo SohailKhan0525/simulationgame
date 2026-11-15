@@ -332,7 +332,10 @@ func exercise_lane(game: Node) -> void:
 		flow.tick(0.05)
 		if flow.ready_visit(): flow.serve(flow.ready_visit())
 	expect(flow.shoppers.is_empty() and m.reservations.is_empty(),"last customers pay and leave the closed shop")
-	for cutoff in [1,15,28,40]:
+	for cutoff in range(1,44):
+		m = Market.opening_shift()
+		m.d.queue_lane = true
+		flow.reset(m)
 		m.toggle_open()
 		for i in cutoff*20: flow.tick(0.05)
 		m.toggle_open()
@@ -356,6 +359,20 @@ func test_road_and_day(game: Node) -> void:
 	expect(m.d == before,"invalid mixed order moves no stock or money")
 	m.place_order(m.d.cart)
 	expect(m.d.cash==57 and m.d.goods.tea.back==5 and m.d.goods.soap.back==6 and m.d.cart.is_empty(),"single transaction delivers mixed cartons")
+	var freight := Market.new()
+	freight.place_order({"tea":2},true)
+	expect(freight.d.cash==55 and freight.d.goods.tea.back==0 and freight.d.freight=="depot","prepaid pickup waits at depot")
+	var depot_state := freight.d.duplicate(true)
+	freight.transfer_freight("depot")
+	expect(freight.d==depot_state,"loading needs the estate")
+	freight.d.driving = true
+	freight.transfer_freight("depot")
+	var in_transit := Market.new()
+	expect(in_transit.restore(JSON.parse_string(JSON.stringify(freight.d))) and in_transit.d.freight=="estate","cargo survives relaunch")
+	in_transit.transfer_freight("market")
+	in_transit.transfer_freight("market")
+	expect(in_transit.d.goods.tea.back==10 and in_transit.d.cash==59 and in_transit.d.shipment.is_empty(),"unload and freight credit apply once")
+	expect(game.district.loading_bay(Vector3(51,0,9))=="depot" and game.district.loading_bay(Vector3(28,0,9)).is_empty(),"only signed bays transfer cargo")
 	m.toggle_open()
 	m.reserve(99,"soap")
 	m.advance_clock(1200)
@@ -379,6 +396,15 @@ func test_road_and_day(game: Node) -> void:
 	game.update_location()
 	game.interact()
 	expect(road.aboard and road.camera.current and not game.player.active,"board parked estate from street")
+	var pads: HarborPedals = game.ui.pedals
+	var boxes := pads.boxes()
+	pads.contact(1,boxes[0].get_center(),true)
+	pads.contact(2,boxes[3].get_center(),true)
+	expect(road.inputs==Vector2(-1,1),"two fingers steer and accelerate independently")
+	pads.contact(2,boxes[3].get_center(),false)
+	expect(road.inputs==Vector2(-1,0),"lifting the accelerator retains steering")
+	pads.release_all()
+	expect(road.inputs==Vector2.ZERO,"pausing clears held pedals")
 	var at := road.estate.position
 	var traffic_at: Vector3 = road.traffic[0].position
 	road.inputs = Vector2(0,1)
