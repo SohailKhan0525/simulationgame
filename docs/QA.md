@@ -36,3 +36,7 @@ Godot 4.6.3 on Linux passed 126 checks, including body clearance through the sho
 The Android workflow additionally seeds a progressed shift in the disposable internal app after the original fresh-start and relaunch test. It verifies the three-shopper checkout prompt, taps two consecutive payments, and checks the saved receipts, cash, revenue and remaining stock. See the workflow run for the result. The seed skips setup for this device scenario. The Godot integration suite buys both upgrades through the UI.
 
 On a phone, buy the checkout lane for $32 after the first sale. Stock at least three units. Let the line fill, take two payments and verify each receipt. Close the shop before serving the third shopper and check that the unpaid parcel is back on display.
+
+## Waterfront art acceptance, 0.3.0
+
+The Linux Godot run exercises eye-level and third-person cameras, real opening stock, direct shelf stocking, current UI controls, queue movement and migration. The original Android OCR crop failed on a relaunch image even though the Pause button was visible. The revised crop was retested on the captured launch and restored-shift frames. The workflow also captures a street and stocked pantry from the installed APK using stated review poses. Physical touch comfort, heat and frame pacing still need a handset.

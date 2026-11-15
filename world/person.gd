@@ -8,10 +8,20 @@ var current := ""
 var carton: MeshInstance3D
 var hands := WorkHands.new()
 
-func outfit(variant: int) -> void:
+func outfit(variant: int, wardrobe := -1) -> void:
 	var figure: Node3D = MODELS[variant % MODELS.size()].instantiate()
 	figure.scale = Vector3.ONE * 0.365
 	add_child(figure)
+	if wardrobe >= 0:
+		var palette := ["677d82","945b4a","828557","3c556c","ac845a","67596c"]
+		for piece: MeshInstance3D in figure.find_children("*","MeshInstance3D",true,false):
+			if piece.mesh == null: continue
+			for i in piece.mesh.get_surface_count():
+				var cloth := piece.mesh.surface_get_material(i) as StandardMaterial3D
+				if cloth and cloth.resource_name == "Shirt":
+					var fabric := cloth.duplicate() as StandardMaterial3D
+					fabric.albedo_color = Color(palette[wardrobe % palette.size()])
+					piece.set_surface_override_material(i,fabric)
 	var skeleton: Skeleton3D = figure.find_children("*","Skeleton3D",true,false)[0]
 	hands.attach(self,skeleton)
 	animator = figure.find_children("*","AnimationPlayer",true,false)[0]

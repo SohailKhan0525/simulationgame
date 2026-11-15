@@ -17,10 +17,18 @@ var reservations: Dictionary[int, Dictionary] = {}
 
 func _init() -> void:
 	d = {"schema": SCHEMA, "cash": 95, "xp": 0, "open": false, "expanded": false, "queue_lane": false,
-		"revenue": 0, "spend": 0, "receipt": 0, "clock": 510.0, "pos": [-1.5, 0.1, 5.45],
-		"yaw": -0.265, "flags": {}, "log": [], "carry": "", "quantity": 0, "goods": {}}
+		"revenue": 0, "spend": 0, "receipt": 0, "clock": 510.0, "pos": [-2.14, 0.1, 7.1],
+		"yaw": -0.29, "flags": {}, "log": [], "carry": "", "quantity": 0, "goods": {}}
 	for id in catalog:
 		d.goods[id] = {"back": 0, "shelf": 0, "sold": 0, "price": int(catalog[id].price)}
+
+static func opening_shift() -> Market:
+	var shop := Market.new()
+	# The lease includes a small opening inventory. These units can be sold
+	# once, priced and saved like every subsequent supplier delivery.
+	shop.d.goods.soap.shelf = 4
+	shop.d.goods.cocoa.shelf = 3
+	return shop
 
 func level() -> int:
 	return 1 + floori(d.xp / 35.0)

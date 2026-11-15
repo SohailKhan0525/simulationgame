@@ -179,12 +179,13 @@ func integration() -> void:
 	expect(click_caption(game.ui.stage,"Start new",true) and game.ui.screen=="hud","new shift through menu")
 	await physics_frame
 	expect(game.directory.business("harbor_market")==game.market,"retail operator registered")
+	expect(game.market.on_display("cocoa") == 3 and game.market.on_display("soap") == 4,"new lease includes seven sellable opening units")
 	expect(game.player.first_person and not game.player.person.visible and game.player.arm.spring_length == 0,"eye-level view on first launch")
 	game.player.set_view(false)
 	expect(game.player.person.visible and game.player.arm.spring_length > 3,"third-person camera and character restored")
 	game.player.set_view(true)
 	game.player.stick = Vector2.UP
-	for i in 195:
+	for i in 245:
 		game.player._physics_process(1.0/60)
 	game.player.stick = Vector2.ZERO
 	expect(game.player.position.z < -1.0 and game.player.is_on_floor(),"controller crosses the doorway on foot")
@@ -289,7 +290,12 @@ func exercise_lane(game: Node) -> void:
 	if flow.line.size() != 3: return
 	for i in 3:
 		expect(flow.line[i].person.position.is_equal_approx(flow.line_position(i)),"shopper reaches marked space "+str(i))
-	expect(m.on_display("tea") == 1, "three actual shopper parcels leave one display unit")
+	var before_units := 0
+	var display_units := 0
+	for id in m.catalog:
+		before_units += int(m.d.goods[id].shelf)
+		display_units += m.on_display(id)
+	expect(before_units - display_units == 3, "three actual shopper parcels leave the display")
 	var first := flow.ready_visit()
 	var second := flow.line[1].visit
 	flow.serve(second)
@@ -300,7 +306,9 @@ func exercise_lane(game: Node) -> void:
 	for i in 100: flow.tick(0.05)
 	expect(flow.ready_visit() == second, "next shopper reaches register after head leaves")
 	m.toggle_open()
-	expect(flow.ready_visit() == 0 and m.on_display("tea") == 3, "closing a live lane clears every hold immediately")
+	var returned_units := 0
+	for id in m.catalog: returned_units += m.on_display(id)
+	expect(flow.ready_visit() == 0 and returned_units == before_units-1, "closing a live lane clears every hold immediately")
 	for i in 600: flow.tick(0.05)
 	expect(flow.shoppers.is_empty(), "all shoppers exit a closed shop")
 	# Closing mid-arrival, mid-browse and mid-queue must leave no stuck bodies.

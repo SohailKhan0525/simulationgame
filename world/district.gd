@@ -13,6 +13,7 @@ var door_label: Label3D
 var stock_stamp := ""
 var sun := DirectionalLight3D.new()
 var outside := Environment.new()
+var contact_material: StandardMaterial3D
 var market_lights: Array[OmniLight3D] = []
 
 func _ready() -> void:
@@ -48,8 +49,10 @@ func _ready() -> void:
 	for x in [-24,-6,13,29]: street_lamp(x,7.4)
 	for x in [-24,7,23]: bench(x,18.2)
 	for parked in [[-6.2,10.0,0.0],[16.5,10.05,0.04],[2.8,15.2,PI]]:
-		var car := prop(preload("res://assets/props/quayside_estate.glb"),Vector3(parked[0],0.05,parked[1]),1.0,parked[2])
+		var model := preload("res://assets/props/pier_saloon.glb") if parked[0] < 0 else preload("res://assets/props/quayside_estate.glb")
+		var car := prop(model,Vector3(parked[0],0.05,parked[1]),1.0,parked[2])
 		solid(car.position+Vector3.UP*0.72,Vector3(4.27,1.44,1.78))
+		contact(Vector3(car.position.x,0.030,car.position.z),Vector2(5.1,2.25))
 	# Rooflines, chimneys and street trees carry the skyline past the playable block.
 	for i in 8:
 		var x := -46.0+float(i)*13.1
@@ -67,6 +70,23 @@ func _ready() -> void:
 	bake()
 
 func waterfront() -> void:
+	# Extend the view beyond the collision boundary with a bend and a terminating
+	# row of buildings. The road stays connected all the way to the skyline.
+	part("road",Vector3(0,-0.083,12.5),Vector3(190,0.045,8.0),"ffffff")
+	part("paving",Vector3(0,-0.105,3.7),Vector3(190,0.05,9.6),"e7e4db")
+	for side in [-1,1]:
+		for i in 4:
+			var x: float = side*(39.9+i*9.8)
+			var h: float = 5.4+((i+1)%3)*1.45
+			part("brick",Vector3(x,h/2,-4.8),Vector3(9.5,h,10),"ddd2c3")
+			box(x,h+0.03,-4.8,9.79,0.17,10.13,"65635d")
+			for col in 4:
+				part("window",Vector3(x-3.45+col*2.30,h-1.65,0.25),Vector3(1.34,1.63,0.11),"6b8292")
+				box(x-3.45+col*2.30,h-2.50,0.28,1.50,0.11,0.34,"b8ad98")
+			box(x,2.65,0.36,8.50,0.42,0.68,["6c5144","435b53","86594b"][i%3])
+		prop(preload("res://assets/props/harbor_plane_tree.glb"),Vector3(side*38.8,0.0,5.1),1.13,side)
+		part("brick",Vector3(side*83,4.65,11.9),Vector3(8.3,9.3,20),"b2a798")
+
 	box(0,-0.44,0,68,0.8,53,"a6957f")
 	solid(Vector3(0,-0.5,0),Vector3(68,1,52))
 	part("road",Vector3(0,-0.025,12.5),Vector3(68,0.05,8),"ffffff")
@@ -112,7 +132,7 @@ func shop() -> void:
 		box(-6.76+j*0.52,2.95,1.52,0.524,0.24,0.065,c)
 	box(0,4.34,-5.0,14.15,0.22,10.0,"b6ad9e")
 	box(0,2.5,-9.8,11.5,0.07,0.09,TIMBER)
-	label3("QUAYSIDE   /   PROVISIONS",Vector3(-1.8,3.1,-9.81),0.37,TEAL)
+	label3("QUAYSIDE  PROVISIONS",Vector3(-3.0,3.69,-9.81),0.28,TEAL)
 	# Individual workstation silhouettes: shelves, pallet, register and ordering terminal.
 	for x in [-6.44,-3.15]:
 		for z in [-8.3,-7.05]: box(x,1.05,z,0.09,2.1,0.09,IRON)
@@ -160,10 +180,6 @@ func shop_details() -> void:
 		box(x,3.68,-6.8,0.027,1.25,0.027,IRON)
 		part("crown",Vector3(x,3.1,-6.8),Vector3(0.75,0.31,0.75),"32716a")
 		part("tube",Vector3(x,3.02,-6.8),Vector3(0.65,0.045,0.65),"ffe5ad")
-	for k in 3:
-		var x := -5.95+k*1.16
-		box(x,2.33,-9.78,1.01,0.51,0.06,["ab704d","628c72","95728a"][k])
-		label3(["TEA","SOAP","COCOA"][k],Vector3(x,2.33,-9.74),0.17,"fff1d4")
 	box(4.65,2.42,-9.76,2.05,1.03,0.11,TIMBER)
 	box(4.65,2.42,-9.685,1.89,0.89,0.04,"9d8666")
 	for i in 3:
@@ -206,6 +222,36 @@ const PACK_PRINT := {
 }
 
 func fit_out() -> void:
+	contact(Vector3(-4.8,0.049,-7.7),Vector2(4.0,2.22))
+	contact(Vector3(4.65,0.048,-3.15),Vector2(3.20,1.85))
+	contact(Vector3(4.6,0.047,-8.3),Vector2(3.36,2.17))
+	# A perforated display back, shelf-edge hardware and product signs are part
+	# of the fixture. The packages themselves come from real market inventory.
+	box(-4.8,1.12,-8.4,3.52,2.10,0.07,"c8ccc6")
+	for row in 14:
+		for col in 22:
+			box(-6.40+col*0.15,0.23+row*0.14,-8.356,0.018,0.041,0.009,"838982")
+	for side in [-1,1]:
+		part("steel",Vector3(-4.8+side*1.75,1.10,-7.73),Vector3(0.075,2.15,1.38),"a6aeaa")
+	# Window tins and cartons are labelled samples in a dedicated fixture.
+	box(-4.8,1.14,-0.52,3.55,0.12,0.64,"75644e",true)
+	for i in 8:
+		var x := -6.18+i*0.395
+		var id: String = ["tea","soap","cocoa"][i%3]
+		box(x,1.45,-0.49,0.33,0.50,0.25,["3e513d","d5c7a5","69382e"][i%3])
+		print_face(self,PACK_PRINT[id],Vector3(x,1.45,-0.358),Vector2(0.326,0.488))
+	label3("WINDOW  SAMPLES",Vector3(-4.8,1.15,-0.18),0.106,"f0e9d6")
+	# Reserve stock and folded cartons sit beside the desk inside the shop.
+	box(0.62,0.12,-8.9,2.13,0.17,1.14,TIMBER,true)
+	for i in 5:
+		var x := -0.05+(i%3)*0.66
+		var y := 0.47+(i/3)*0.53
+		box(x,y,-8.90,0.63,0.51,0.83,"a98560")
+		box(x,y+0.26,-8.90,0.09,0.01,0.84,"d2ae7c")
+		box(x,y,-8.478,0.28,0.155,0.012,"e4ddcb")
+		for bar in 9:
+			box(x-0.10+bar*0.023,y,-8.468,0.008+0.004*(bar%2),0.092,0.006,"483e34")
+	solid(Vector3(0.62,0.56,-8.9),Vector3(2.06,1.12,1.10))
 	# Brick apartments above the original shop. Recesses, lintels, divided panes
 	# and recessed blinds give the facade depth at walking distance.
 	part("brick",Vector3(0,6.35,-5),Vector3(14.0,3.91,9.9),"f4ede4")
@@ -221,6 +267,28 @@ func fit_out() -> void:
 	for x in [-6.72,6.74]:
 		part("tube",Vector3(x,4.82,0.23),Vector3(0.108,6.75,0.108),"525956")
 		for y in [2.15,4.84,7.47]: part("tube",Vector3(x,y,0.23),Vector3(0.134,0.049,0.134),"93978a")
+	# Acoustic ceiling grid, skirtings and junction boxes break up broad interior planes.
+	for i in 12:
+		box(-6.6+i*1.2,4.208,-5,0.027,0.018,9.84,"a4a4a0")
+	for i in 9:
+		box(0,4.209,-0.15-i*1.2,13.8,0.019,0.027,"a4a4a0")
+	box(0,0.14,-9.81,13.65,0.23,0.08,"71726b")
+	for wall in [-6.80,6.80]: box(wall,0.14,-5,0.075,0.23,9.7,"71726b")
+	box(6.51,1.87,-9.79,0.50,0.72,0.16,"737d77")
+	box(6.49,1.88,-9.69,0.41,0.58,0.035,"909990")
+	box(6.51,3.11,-9.74,0.052,1.75,0.044,"959990")
+	for k in 5: box(6.52,1.99+k*0.044,-9.66,0.24,0.010,0.016,"525c59")
+	# Operator chair, drawer pulls, monitor stand and paperwork at the desk.
+	part("tube",Vector3(5.66,0.27,-7.12),Vector3(0.10,0.43,0.10),"42484a")
+	box(5.66,0.54,-7.12,0.57,0.12,0.52,"53605c",true)
+	box(5.66,0.86,-6.91,0.55,0.52,0.095,"455450")
+	for i in 5:
+		var a := TAU*i/5.0
+		part("steel",Vector3(5.66+0.145*cos(a),0.12,-7.12+0.145*sin(a)),Vector3(0.34,0.05,0.046),"656d6a",0,-a)
+		part("tube",Vector3(5.66+0.30*cos(a),0.071,-7.12+0.30*sin(a)),Vector3(0.072,0.065,0.072),"303734")
+	box(5.54,0.48,-8.43,0.43,0.64,0.69,"6a6861")
+	for i in 3: box(5.54,0.33+i*0.20,-8.06,0.22,0.026,0.048,"aeb5b2")
+	for i in 4: box(3.61+i*0.014,0.91+i*0.008,-8.06,0.28,0.009,0.37,"ebe5d4")
 	# Suspended linear fixtures and actual short-range shop lights.
 	for x in [-3.75,3.75]:
 		part("steel",Vector3(x,3.37,-4.9),Vector3(0.27,0.105,3.1),"bdc3bd")
@@ -302,7 +370,35 @@ func prop(scene: PackedScene, pos: Vector3, scale_factor: float, angle := 0.0) -
 	instance.position = pos
 	instance.scale = Vector3.ONE * scale_factor
 	instance.rotation.y = angle
+	if scene == preload("res://assets/props/food_apple_01.glb") or scene == preload("res://assets/props/plastic_crate_01.glb"):
+		for piece: MeshInstance3D in instance.find_children("*","MeshInstance3D",true,false):
+			piece.visibility_range_end = 26.0
+			piece.lod_bias = 0.65
 	return instance
+
+func contact(pos: Vector3, footprint: Vector2) -> void:
+	if contact_material == null:
+		var fade := GradientTexture2D.new()
+		fade.width = 96
+		fade.height = 96
+		fade.fill = GradientTexture2D.FILL_RADIAL
+		fade.fill_from = Vector2(0.5,0.5)
+		fade.fill_to = Vector2(1,0.5)
+		fade.gradient = Gradient.new()
+		fade.gradient.colors = PackedColorArray([Color("20202089"),Color("22222266"),Color("22222200")])
+		fade.gradient.offsets = PackedFloat32Array([0,0.67,1])
+		contact_material = StandardMaterial3D.new()
+		contact_material.albedo_texture = fade
+		contact_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		contact_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var plane := PlaneMesh.new()
+	plane.size = footprint
+	plane.material = contact_material
+	var shadow := MeshInstance3D.new()
+	shadow.mesh = plane
+	shadow.position = pos
+	shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(shadow)
 
 func cafe_stand() -> void:
 	# Café pavement stall. Produce here belongs to the neighboring premises.

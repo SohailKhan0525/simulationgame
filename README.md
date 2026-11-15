@@ -1,6 +1,6 @@
 # Qofeno Simulation
 
-Run Harbor Market, a small provisions shop on a walkable waterfront. Start with $95, order your first carton, stock the shelves and open the doors. A shopper chooses an affordable item and brings it to the till. The first payment unlocks two upgrades. Extend the shelves or mark out a checkout lane for three shoppers. Your shift, prices, receipts and upgrades persist on the phone.
+Run Harbor Market, a small provisions shop on a walkable waterfront. Start with $95, four soaps and three cocoa tins on display. Order your first carton, stock the shelves and open the doors. A shopper chooses an affordable item and brings it to the till. The first payment unlocks two upgrades. Extend the shelves or mark out a checkout lane for three shoppers. The window samples stay on display as advertising. Your shift, prices, receipts and upgrades persist on the phone.
 
 **Development status** • The Harbor Market district is an internal Android playtest. The hotel, computer store and café appear as future premises. Install the [verified 0.1.0 Android APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-bd1646b866e1/Qofeno-Simulation-0.1.0-internal.apk) (85.2 MB). The [playtest release](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-bd1646b866e1) includes its checksum and Android screenshots.
 

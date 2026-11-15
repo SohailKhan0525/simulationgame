@@ -34,7 +34,8 @@ func _ready() -> void:
 	prefs.apply(get_viewport(),district.sun)
 	view.position = Vector3(-11.3,2.47,16.32)
 	view.look_at(Vector3(0.95,3.20,-1.7))
-	view.fov = 57
+	view.fov = 59
+	district.time_of_day(540)
 	show_menu()
 
 func show_menu() -> void:
@@ -50,7 +51,7 @@ func request_new() -> void:
 	else: new_shift()
 
 func new_shift() -> void:
-	var fresh := Market.new()
+	var fresh := Market.opening_shift()
 	# Only an explicit new-shift action can replace an unreadable or future slot.
 	var replacement := Slot.new(slot.path)
 	replacement.recovery = true

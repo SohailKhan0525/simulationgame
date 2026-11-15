@@ -13,7 +13,7 @@ var held_parcel := MeshInstance3D.new()
 var active := false
 var stride := 0.0
 var yaw := 0.0
-var pitch := -0.19
+var pitch := -0.015
 
 func _ready() -> void:
 	collision_layer = 2

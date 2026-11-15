@@ -16,7 +16,7 @@ def region(frame, word):
     if width <= height:
         return None
     if word == "Pause":
-        return int(width * 0.84), 2, width, round(height * 0.115)
+        return int(width * 0.912), int(height * 0.031), int(width * 0.975), int(height * 0.095)
     if word in {"full-line", "ready-line"}:
         return int(width * 0.79), int(height * 0.878), int(width * 0.981), int(height * 0.956)
     # Find the solid primary action within the menu or right-hand till sheet.
@@ -62,6 +62,10 @@ def locate(frame, word):
     if word == "Pause":
         gray = ImageOps.invert(gray)
     gray = gray.point(lambda pixel: 255 if pixel > 114 else 0)
+    if word == "Pause":
+        # Darken scenery can vary independently behind the translucent HUD.
+        # Limit OCR to the label and give the glyphs clean document margins.
+        gray = ImageOps.expand(gray, border=7, fill=255)
     source = io.BytesIO()
     gray.save(source, format="PPM")
     result = subprocess.run(["tesseract", "stdin", "stdout", "--psm", "7", "tsv"],
@@ -75,6 +79,8 @@ def locate(frame, word):
         return None
     for row in words:
         if row["text"].strip().casefold() == word.casefold():
+            if word == "Pause":
+                return (bounds[0]+bounds[2])//2, (bounds[1]+bounds[3])//2
             return (bounds[0] + int(row["left"]) + int(row["width"]) // 2,
                     bounds[1] + int(row["top"]) + int(row["height"]) // 2)
     return None

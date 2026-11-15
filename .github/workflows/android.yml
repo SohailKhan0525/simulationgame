@@ -122,4 +122,4 @@ jobs:
           Commit: $GITHUB_SHA
           CI: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           NOTES
-          gh release create "$tag" *.apk *.sha256 manifest.json device/first-shift.png device/menu.png device/queue-floor.png device/queue-first-basket.png --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Harbor Market $git_version · internal Android playtest" --notes-file notes.md
+          gh release create "$tag" *.apk *.sha256 manifest.json device/first-shift.png device/menu.png device/queue-floor.png device/queue-first-basket.png device/waterfront-street.png device/pantry-display.png --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Harbor Market $git_version · internal Android playtest" --notes-file notes.md

@@ -127,6 +127,7 @@ func scrim(parent: Control, from: Vector2, to: Vector2, colors: PackedColorArray
 	var fade := GradientTexture2D.new()
 	fade.gradient = Gradient.new()
 	fade.gradient.colors = colors
+	fade.gradient.offsets = PackedFloat32Array([0.0,0.47,1.0])
 	fade.fill_from = from
 	fade.fill_to = to
 	fade.width = 128
@@ -144,14 +145,16 @@ func quiet_button(parent: Control, caption: String, action: Callable) -> Button:
 
 func menu() -> void:
 	clear("menu")
-	scrim(stage,Vector2(0.02,0.92),Vector2(0.82,0.25),PackedColorArray([Color("10191df4"),Color("142126a5"),Color("16222600")]))
+	scrim(stage,Vector2(0.12,0.86),Vector2(0.80,0.31),PackedColorArray([Color("10191df4"),Color("142126a5"),Color("16222600")]))
 	var menu_stack := column(stage)
 	anchor(menu_stack,0,1,0,1,Rect2(36,-316,395,292))
 	menu_stack.add_theme_constant_override("separation",4)
 	var title := text(menu_stack,"QOFENO",77,PAPER,true)
 	title.add_theme_constant_override("line_spacing",-8)
 	text(menu_stack,"SIMULATION",31,PAPER,true)
-	text(menu_stack,"Harbor Market  /  Waterfront district",18,ACCENT)
+	var location := text(menu_stack,"Harbor Market  /  Waterfront district",18,PAPER)
+	location.add_theme_color_override("font_outline_color",Color("172124e0"))
+	location.add_theme_constant_override("outline_size",3)
 	var actions := row(menu_stack)
 	actions.add_theme_constant_override("separation",6)
 	if app.slot.exists(): button(actions,"Continue shift",app.resume_shift,true)

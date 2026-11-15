@@ -50,7 +50,7 @@ func spawn_shopper() -> void:
 	shopper.speed = 1.65 + 0.15 * (visits % 3)
 	shopper.person = HarborPerson.new()
 	add_child(shopper.person)
-	shopper.person.outfit(visits % 2)
+	shopper.person.outfit(visits % 2, visits)
 	shopper.person.position = STREET
 	shopper.route.assign([ENTRY, AISLE, Vector3(-4.45,0.055,-4.45), SHELF])
 	shoppers.append(shopper)
