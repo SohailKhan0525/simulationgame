@@ -1,7 +1,7 @@
 class_name Preferences
 extends RefCounted
 
-const DEFAULTS := {"quality":1, "fps":30, "volume":75, "ambience":40, "sensitivity":65, "invert":false, "hints":true, "autosave":true}
+const DEFAULTS := {"quality":1, "fps":30, "volume":75, "ambience":40, "music":50, "effects":75, "ui":75, "sensitivity":65, "invert":false, "hints":true, "autosave":true}
 var values := DEFAULTS.duplicate()
 var file: String
 
@@ -28,5 +28,6 @@ func apply(view: Viewport, light: DirectionalLight3D) -> void:
 	view.scaling_3d_scale = [0.65, 0.85, 1.0][values.quality]
 	if light: light.shadow_enabled = values.quality > 0
 	AudioServer.set_bus_volume_db(0, linear_to_db(values.volume / 100.0))
-	var bus := AudioServer.get_bus_index("Ambience")
-	if bus >= 0: AudioServer.set_bus_volume_db(bus, linear_to_db(values.ambience / 100.0))
+	for pair in [["Ambience","ambience"],["Music","music"],["Effects","effects"],["Interface","ui"]]:
+		var bus := AudioServer.get_bus_index(pair[0])
+		if bus >= 0: AudioServer.set_bus_volume_db(bus,linear_to_db(float(values[pair[1]])/100.0))

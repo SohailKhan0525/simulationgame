@@ -6,11 +6,14 @@ var animator: AnimationPlayer
 var clips := {}
 var current := ""
 var carton: MeshInstance3D
+var hands := WorkHands.new()
 
 func outfit(variant: int) -> void:
 	var figure: Node3D = MODELS[variant % MODELS.size()].instantiate()
 	figure.scale = Vector3.ONE * 0.365
 	add_child(figure)
+	var skeleton: Skeleton3D = figure.find_children("*","Skeleton3D",true,false)[0]
+	hands.attach(self,skeleton)
 	animator = figure.find_children("*","AnimationPlayer",true,false)[0]
 	for key in animator.get_animation_list():
 		var clip := str(key).get_slice("_",1)

@@ -256,6 +256,7 @@ func settings() -> void:
 	var p: Dictionary = app.prefs.values
 	var options := [["quality","Graphics",["Low","Standard","High"]],["fps","Frame limit",[30,60]],
 		["volume","Master volume",[0,25,50,75,100]],["ambience","Harbor ambience",[0,20,40,70,100]],
+		["music","Menu music",[0,25,50,75,100]],["effects","Shop effects",[0,25,50,75,100]],["ui","Interface volume",[0,25,50,75,100]],
 		["sensitivity","Look sensitivity",[20,45,65,85,100]],["invert","Invert vertical look",[false,true]],
 		["hints","Objective hints",[false,true]],["autosave","Timed autosave",[false,true]]]
 	for opt in options:
@@ -276,6 +277,8 @@ func settings() -> void:
 func updates() -> void:
 	sheet("updates","GITHUB RELEASES","Game updates",back)
 	text(body,"Installed "+app.version+"   •   Stable release channel")
+	if OS.has_feature("android") and OS.is_debug_build():
+		text(body,"Internal test edition. A stable APK installs separately and starts its own save slot.",16,ACCENT)
 	text(body,"Check when you choose. Installation takes place on the official GitHub release page.",17,MUTED)
 	button(body,"Check for updates",func():
 		toast("Checking GitHub…")
@@ -295,7 +298,7 @@ func credits() -> void:
 
 func terminal(tab := "Overview") -> void:
 	sheet("terminal","HARBOR OS  /  SHOP COMPUTER","Market desk",hud)
-	var m: Market = app.market
+	var m: Market = app.directory.business("harbor_market")
 	var tabs := row(body)
 	for key in ["Overview","Orders","Prices","Reports","Upgrade"]:
 		button(tabs,key,terminal.bind(key),key==tab)
@@ -313,6 +316,7 @@ func terminal(tab := "Overview") -> void:
 				var item: Dictionary = m.catalog[id]
 				button(body,"Order %d × %s     $%d" % [item.pack,item.name,item.cost*item.pack],transaction.bind(m.order.bind(id),tab))
 		"Prices":
+			text(body,"Shoppers have different budgets. A high price can send them home empty-handed.",16,MUTED)
 			for id in m.catalog:
 				var line := row(body)
 				var info := text(line,"%s   $%d" % [m.catalog[id].name,m.d.goods[id].price])
@@ -361,13 +365,15 @@ func station(id: String) -> void:
 
 func world_action(action: Callable) -> void:
 	var feedback: String = action.call()
-	app.sound.cue("coin" if screen=="till" else "crate")
+	app.player.person.hands.gesture(screen,0.9)
+	app.sound.cue("coin" if screen=="till" else ("door" if screen=="sign" else "crate"))
 	hud()
 	toast(feedback)
 
 func map_view() -> void:
 	sheet("map","HARBOR DISTRICT","Waterfront map",hud)
 	var map := HarborAtlas.new()
+	map.places = app.directory.entries
 	map.player_pos = app.player.position
 	map.target = app.waypoint
 	map.custom_minimum_size.y = 156

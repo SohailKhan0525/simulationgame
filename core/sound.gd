@@ -4,19 +4,29 @@ extends Node
 var player := AudioStreamPlayer.new()
 var bed := AudioStreamPlayer.new()
 var effects := {}
+var music := AudioStreamPlayer.new()
+var audible := false
 
 func _ready() -> void:
-	if AudioServer.get_bus_index("Ambience") < 0:
-		AudioServer.add_bus()
-		AudioServer.set_bus_name(AudioServer.bus_count-1,"Ambience")
+	for bus in ["Ambience","Music","Effects","Interface"]:
+		if AudioServer.get_bus_index(bus) < 0:
+			AudioServer.add_bus()
+			AudioServer.set_bus_name(AudioServer.bus_count-1,bus)
+	audible = DisplayServer.get_name() != "headless"
+	add_child(music)
+	music.bus = "Music"
+	var theme: AudioStreamOggVorbis = load("res://assets/audio/harbor_lights.ogg")
+	theme.loop = true
+	music.stream = theme
+	music.volume_db = -5
 	add_child(player)
 	add_child(bed)
 	bed.bus = "Ambience"
-	for entry in [["tap",420.0,0.065],["coin",940.0,0.23],["crate",148.0,0.14],["step",82.0,0.075]]:
+	for entry in [["tap",420.0,0.065],["coin",940.0,0.23],["crate",148.0,0.14],["step",82.0,0.075],["door",620.0,0.35]]:
 		effects[entry[0]] = tone(entry[1],entry[2],entry[0])
 	bed.stream = tone(0,4.0,"shore")
 	bed.volume_db = -17
-	bed.play()
+	if audible: bed.play()
 
 func tone(hz: float, seconds: float, name_: String) -> AudioStreamWAV:
 	var sample_rate := 16000
@@ -46,10 +56,17 @@ func tone(hz: float, seconds: float, name_: String) -> AudioStreamWAV:
 	return wave
 
 func cue(id: String) -> void:
-	if id == "step" and player.playing: return
+	if not audible or (id == "step" and player.playing): return
+	player.bus = "Interface" if id == "tap" else "Effects"
 	player.stream = effects[id]
 	player.play()
 
+func scene(playing: bool) -> void:
+	if not audible: return
+	if playing: music.stop()
+	elif not music.playing: music.play()
+
 func _exit_tree() -> void:
+	music.stop()
 	player.stop()
 	bed.stop()

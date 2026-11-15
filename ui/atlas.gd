@@ -1,7 +1,7 @@
 class_name HarborAtlas
 extends Control
 
-var places: Array = JSON.parse_string(FileAccess.get_file_as_string("res://data/places.json"))
+var places: Array = []
 var player_pos := Vector3.ZERO
 var target := Vector2(0,-4)
 

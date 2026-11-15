@@ -1,6 +1,7 @@
 extends Node3D
 
 var market := Market.new()
+var directory := BusinessDirectory.new()
 var slot := Slot.new()
 var prefs := Preferences.new()
 var updater := HarborUpdates.new()
@@ -38,6 +39,7 @@ func _ready() -> void:
 
 func show_menu() -> void:
 	in_shift = false
+	sound.scene(false)
 	view.current = true
 	player.hide()
 	flow.hide()
@@ -72,6 +74,7 @@ func resume_shift() -> void:
 func start(next: Market) -> void:
 	if market.changed.is_connected(market_changed): market.changed.disconnect(market_changed)
 	market = next
+	directory.bind_operator("harbor_market",market)
 	market.changed.connect(market_changed)
 	if flow.person:
 		flow.person.queue_free()
@@ -88,9 +91,11 @@ func start(next: Market) -> void:
 	player.yaw = market.d.yaw
 	player.pivot.rotation.y = player.yaw
 	player.person.carton.visible = market.d.quantity > 0
+	player.person.hands.carrying = player.person.carton.visible
 	player.show()
 	player.camera.current = true
 	in_shift = true
+	sound.scene(true)
 	dirty = false
 	auto_time = 0
 	ui.hud()
@@ -105,6 +110,7 @@ func market_changed() -> void:
 	dirty = true
 	district.refresh(market)
 	player.person.carton.visible = market.d.quantity > 0
+	player.person.hands.carrying = player.person.carton.visible
 	ui.refresh()
 
 func _physics_process(dt: float) -> void:
@@ -145,6 +151,11 @@ func update_location() -> void:
 func interact() -> void:
 	if not player.active: return
 	update_location()
+	if nearest != "":
+		var spot: Vector3 = District.SPOTS[nearest]
+		var delta := spot-player.position
+		if delta.length_squared()>0.01: player.person.rotation.y = atan2(delta.x,delta.z)
+		player.person.hands.gesture(nearest,1.2)
 	if nearest == "computer":
 		market.mark("terminal")
 		ui.terminal()

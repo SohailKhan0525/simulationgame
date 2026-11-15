@@ -50,3 +50,4 @@ fi
 grep -F "name='$package' versionCode='$code' versionName='$version'" build/package.txt
 (cd build && sha256sum "$name.apk" > "$name.apk.sha256")
 git rev-parse HEAD > build/commit.txt
+python3 ci/release_manifest.py "$mode"

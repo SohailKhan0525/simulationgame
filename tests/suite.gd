@@ -41,6 +41,10 @@ func economy() -> void:
 	m.expand()
 	expect(not m.d.expanded,"upgrade gated by first receipt")
 	m.toggle_open()
+	expect(m.choose_product(1)=="tea","shopper finds affordable stock")
+	for i in 8: m.set_price("tea",1)
+	expect(m.choose_product(1)=="","shopper declines unaffordable shelf price")
+	for i in 8: m.set_price("tea",-1)
 	expect(m.reserve("tea") and not m.reserve("tea"),"one active basket")
 	m.set_price("tea",1)
 	m.checkout()
@@ -122,8 +126,15 @@ func integration() -> void:
 	root.add_child(game)
 	await process_frame
 	expect(game.ui.screen=="menu","branded menu boot")
+	expect(not game.directory.bind_operator("tide_hotel",Market.new()),"future property cannot bind an operator")
 	expect(click_caption(game.ui.stage,"Start new") and game.ui.screen=="hud","new shift through menu")
 	await physics_frame
+	expect(game.directory.business("harbor_market")==game.market,"retail operator registered")
+	game.player.stick = Vector2.UP
+	for i in 195:
+		game.player._physics_process(1.0/60)
+	game.player.stick = Vector2.ZERO
+	expect(game.player.position.z < -1.0 and game.player.is_on_floor(),"controller crosses the doorway on foot")
 	for entry in [["computer",Vector3(4.6,0.08,-7.1)],["receiving",Vector3(-5.45,0.08,-1.38)],["display",Vector3(-4.55,0.08,-6.1)],["sign",Vector3(2.2,0.08,0.83)]]:
 		game.player.position = entry[1]
 		game.update_location()
@@ -170,6 +181,19 @@ func integration() -> void:
 	drag.position=Vector2(75,270)
 	g._gui_input(drag)
 	expect(game.player.stick.y < -0.9,"floating stick drives motion")
+	var initial: float = game.player.yaw
+	var other := InputEventScreenTouch.new()
+	other.index=3
+	other.pressed=true
+	other.position=Vector2(760,200)
+	g._gui_input(other)
+	var look := InputEventScreenDrag.new()
+	look.index=3
+	look.relative=Vector2(25,10)
+	g._gui_input(look)
+	expect(game.player.yaw != initial and game.player.stick.y < -0.9,"second finger looks independently")
+	other.pressed=false
+	g._gui_input(other)
 	press.pressed=false
 	g._gui_input(press)
 	expect(game.player.stick==Vector2.ZERO,"release clears movement")

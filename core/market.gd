@@ -103,6 +103,15 @@ func available() -> Array:
 		if d.goods[id].shelf > 0: ids.append(id)
 	return ids
 
+func choose_product(visit: int) -> String:
+	# Shoppers differ in willingness to pay. A higher margin can lose a visit.
+	var options := available()
+	for i in options.size():
+		var id: String = options[(visit-1+i)%options.size()]
+		var budget := int(catalog[id].price) + (visit % 4)
+		if d.goods[id].price <= budget: return id
+	return ""
+
 func reserve(id: String) -> bool:
 	if not d.open or basket != "" or not catalog.has(id) or d.goods[id].shelf < 1: return false
 	basket = id

@@ -53,8 +53,8 @@ func tick(delta: float) -> void:
 	elif phase == Phase.BROWSING:
 		delay -= delta
 		if delay > 0: return
-		var goods := market.available()
-		if goods.is_empty() or not market.reserve(goods[(visits-1)%goods.size()]):
+		var choice := market.choose_product(visits)
+		if choice == "" or not market.reserve(choice):
 			depart()
 		else: walk(Phase.QUEUING,[AISLE,Vector3(1.8,0.055,-1.75),TILL])
 	elif phase == Phase.WAITING:

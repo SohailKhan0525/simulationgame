@@ -5,7 +5,7 @@
 | `assets/people/shopkeeper.glb` | [Man by Quaternius](https://poly.pizza/m/HMnuH5geEG), Public Domain [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Original GLB with skin, materials and skeletal clips. |
 | `assets/people/neighbor.glb` | [Woman Casual by Quaternius](https://poly.pizza/m/jpKRgGDxhk), Public Domain CC0 1.0. Original GLB with skin, materials and skeletal clips. |
 | Harbor District | Original geometry, color palette, storefront lettering, products and props constructed by `world/district.gd`. |
-| Sound and branding | Original synthesized audio in `core/sound.gd`, original vector mark in `assets/ui/mark.svg`. |
+| Sound and branding | Original Harbor Lights menu composition rendered by `ci/menu_music.py`, synthesized audio in `core/sound.gd`, original vector mark in `assets/ui/mark.svg`. |
 | Typeface | Godot's bundled fallback and the device's installed serif face. |
 | Engine | [Godot Engine and third-party license notices](https://godotengine.org/license/). Accessible through Credits. |
 

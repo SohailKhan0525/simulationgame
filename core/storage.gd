@@ -53,8 +53,9 @@ func save(m: Market) -> bool:
 	var ok := f.get_error() == OK
 	f.close()
 	if not ok or not Market.new().restore(_read(stage)): return _failed()
-	if FileAccess.file_exists(full) and not recovery:
-		if DirAccess.copy_absolute(full, full + ".bak") != OK: return _failed()
+	if FileAccess.file_exists(full) and not recovery and Market.new().restore(_read(full)):
+		if DirAccess.copy_absolute(full,full+".bak.next") != OK: return _failed()
+		if DirAccess.rename_absolute(full+".bak.next",full+".bak") != OK: return _failed()
 	if DirAccess.rename_absolute(stage, full + ".tmp") != OK: return _failed()
 	if DirAccess.rename_absolute(full + ".tmp", full) != OK: return _failed()
 	recovery = false
