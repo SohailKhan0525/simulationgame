@@ -17,9 +17,11 @@ def region(frame, word):
         return None
     if word == "Pause":
         return int(width * 0.84), 2, width, round(height * 0.115)
+    if word in {"full-line", "ready-line"}:
+        return int(width * 0.79), int(height * 0.878), int(width * 0.981), int(height * 0.956)
     # The large primary menu action has a copper fill. Locate the actual
     # button so a Continue slot, safe-area margins or text scaling can move it.
-    x = int(width * 0.06)
+    x = int(width * (0.30 if word == "payment" else 0.06))
     rows = []
     for y in range(height // 5, height * 4 // 5):
         red, green, blue = frame.getpixel((x, y))
@@ -37,6 +39,8 @@ def region(frame, word):
         end = y
     if end - start < height * 0.035:
         return None
+    if word == "payment":
+        return int(width * 0.22), start + 3, int(width * 0.78), end - 2
     return int(width * 0.05), start + 2, int(width * 0.34), end - 1
 
 
@@ -52,7 +56,14 @@ def locate(frame, word):
     gray.save(source, format="PPM")
     result = subprocess.run(["tesseract", "stdin", "stdout", "--psm", "7", "tsv"],
                             input=source.getvalue(), capture_output=True, timeout=10, check=True)
-    for row in csv.DictReader(io.StringIO(result.stdout.decode()), delimiter="\t"):
+    words = list(csv.DictReader(io.StringIO(result.stdout.decode()), delimiter="\t"))
+    if word in {"full-line", "ready-line"}:
+        label = " ".join(row["text"] for row in words)
+        count = "3" if word == "full-line" else "[1-3]"
+        if re.search(r"Checkout\s*[·.°•:\-]?\s*" + count + r"\b", label, re.I):
+            return (bounds[0] + bounds[2]) // 2, (bounds[1] + bounds[3]) // 2
+        return None
+    for row in words:
         if row["text"].strip().casefold() == word.casefold():
             return (bounds[0] + int(row["left"]) + int(row["width"]) // 2,
                     bounds[1] + int(row["top"]) + int(row["height"]) // 2)
@@ -86,7 +97,7 @@ def close_system_launcher_dialog(adb):
 def main():
     word, dest, *action = sys.argv[1:]
     adb = str(Path(os.environ["ANDROID_HOME"]) / "platform-tools/adb")
-    for attempt in range(22):
+    for attempt in range(60 if word == "full-line" else 22):
         frame = subprocess.check_output([adb, "exec-out", "screencap", "-p"], timeout=20)
         Path(dest).write_bytes(frame)
         point = locate(Image.open(io.BytesIO(frame)).convert("RGB"), word)

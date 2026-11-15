@@ -73,17 +73,12 @@ func resume_shift() -> void:
 
 func start(next: Market) -> void:
 	if market.changed.is_connected(market_changed): market.changed.disconnect(market_changed)
+	if market.display_changed.is_connected(refresh_display): market.display_changed.disconnect(refresh_display)
 	market = next
+	market.display_changed.connect(refresh_display)
 	directory.bind_operator("harbor_market",market)
 	market.changed.connect(market_changed)
-	if flow.person:
-		flow.person.queue_free()
-		flow.person = null
-	flow.phase = CustomerFlow.Phase.AWAY
-	flow.route.clear()
-	flow.visits = int(market.d.receipt)
-	flow.delay = 2.6
-	flow.market = market
+	flow.reset(market)
 	flow.show()
 	district.refresh(market)
 	district.time_of_day(market.d.clock)
@@ -106,6 +101,9 @@ func set_playing(value: bool) -> void:
 	player.active = value and in_shift
 	flow.active = player.active
 	if not player.active: player.halt()
+
+func refresh_display() -> void:
+	district.refresh(market)
 
 func market_changed() -> void:
 	dirty = true

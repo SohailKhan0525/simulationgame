@@ -74,6 +74,9 @@ fi
 launch
 /usr/bin/python3 ci/device-screen.py "Continue" build/device/relaunch.png tap
 /usr/bin/python3 ci/device-screen.py "Pause" build/device/continued-shift.png
+if [[ "$package" == *.internal ]]; then
+  /usr/bin/python3 ci/device-queue.py "$adb" "$package" "$slot"
+fi
 "$adb" shell pidof "$package"
 kill "$log_pid" 2>/dev/null || true
 if grep -E 'ANR in com\.qofeno\.simulation|SCRIPT ERROR:|FATAL EXCEPTION:|Fatal signal [0-9]+.*qofeno|E godot *:.*ERROR:' "$out/logcat.txt"; then exit 1; fi

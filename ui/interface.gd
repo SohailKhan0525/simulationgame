@@ -200,7 +200,10 @@ func refresh() -> void:
 	hud_task.text = m.objective() if app.prefs.values.hints else "Harbor District"
 	if m.d.quantity: hud_task.text += "  •  Carrying %d" % m.d.quantity
 	interact.visible = app.nearest != ""
-	if interact.visible: interact.text = District.NAMES[app.nearest]
+	if interact.visible:
+		interact.text = District.NAMES[app.nearest]
+		if app.nearest == "till" and app.flow.ready_visit() != 0:
+			interact.text = "Checkout  ·  %d" % app.flow.line.size()
 	(stage.get_node("Pace") as Button).text = "Running" if app.player.running else "Walking"
 
 func sheet(id: String, eyebrow: String, title: String, back: Callable) -> void:
@@ -313,7 +316,7 @@ func terminal(tab := "Overview") -> void:
 			text(body,m.objective(),19,ACCENT)
 			for id in m.catalog:
 				var g: Dictionary = m.d.goods[id]
-				text(body,"%s   •   %d at receiving   /   %d on display" % [m.catalog[id].name,g.back,g.shelf],17,MUTED)
+				text(body,"%s   •   %d at receiving   /   %d on display   /   %d in baskets" % [m.catalog[id].name,g.back,m.on_display(id),int(g.shelf)-m.on_display(id)],17,MUTED)
 			text(body,"Pick up deliveries at the front-left pallet. Place them on the rear-left display. Use the door sign to start trading.",16)
 		"Orders":
 			text(body,"Supplier delivers to receiving immediately. Cash available $%d." % m.d.cash,17,MUTED)
@@ -338,6 +341,10 @@ func terminal(tab := "Overview") -> void:
 			text(body,"Adds a second row on every shelf. Capacity rises from six to twelve units per product. Unlocks after the first sale.",17,MUTED)
 			if m.d.expanded: text(body,"Installed",19,ACCENT)
 			else: button(body,"Install extension    $45",transaction.bind(m.expand,tab),true)
+			text(body,"Checkout lane",22)
+			text(body,"Three marked spaces let up to three shoppers browse and queue together. Available after your first sale.",17,MUTED)
+			if m.d.queue_lane: text(body,"Installed",19,ACCENT)
+			else: button(body,"Install checkout lane    $%d" % Market.QUEUE_LANE_COST,transaction.bind(m.install_queue_lane,tab),true)
 
 func transaction(action: Callable, tab: String) -> void:
 	var info: String = action.call()
@@ -357,16 +364,21 @@ func station(id: String) -> void:
 					button(body,"Collect %s    ·    %d available" % [m.catalog[key].name,m.d.goods[key].back],world_action.bind(m.collect.bind(key)))
 		"display":
 			text(body,"Display capacity   %d per product" % m.capacity())
-			for key in m.catalog: text(body,"%s   ·   %d on shelf" % [m.catalog[key].name,m.d.goods[key].shelf],17,MUTED)
+			for key in m.catalog: text(body,"%s   ·   %d on shelf" % [m.catalog[key].name,m.on_display(key)],17,MUTED)
 			button(body,"Stock carried carton",world_action.bind(m.stock),true)
 		"sign":
 			text(body,"Customers browse stocked products, then bring a basket to the till.")
 			button(body,"Close shop" if m.d.open else "Open shop",world_action.bind(m.toggle_open),true)
 		"till":
-			if app.flow.phase == CustomerFlow.Phase.WAITING:
-				text(body,"%s    × 1" % m.catalog[m.basket].name)
-				button(body,"Take payment    $%d" % m.quote,world_action.bind(app.flow.serve),true)
-			else: text(body,"The till is clear. A shopper will wait here after choosing a product.")
+			var visit: int = app.flow.ready_visit()
+			if visit:
+				var item: Dictionary = m.reservations[visit]
+				text(body,"%s    × 1" % m.catalog[item.id].name)
+				if app.flow.line.size() > 1:
+					text(body,"%d more in line" % (app.flow.line.size()-1),17,MUTED)
+				button(body,"Take payment    $%d" % item.price,world_action.bind(app.flow.serve.bind(visit)),true)
+			elif app.flow.line.is_empty(): text(body,"A shopper will wait here after choosing a product.")
+			else: text(body,"The next shopper is approaching. Return to the shop floor to let them reach the till.")
 
 func world_action(action: Callable) -> void:
 	var feedback: String = action.call()

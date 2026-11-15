@@ -2,17 +2,21 @@ class_name Market
 extends RefCounted
 
 signal changed
-const SCHEMA := 2
+signal display_changed
+signal closed
+const SCHEMA := 3
 const EXPANSION := 45
+const QUEUE_LANE_COST := 32
+const QUEUE_LIMIT := 3
 const MILESTONES := ["visit", "terminal", "order", "collect", "stock", "open", "sale", "expand"]
 const OBJECTIVES := ["Enter Harbor Market", "Use the desk at the rear right", "Order a carton at the computer", "Collect your carton at receiving", "Fill the display shelves", "Open the shop at the door sign", "Serve a customer at the till", "Buy the shelf extension at the computer"]
 var catalog: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/catalog.json"))
 var d: Dictionary
-var basket := ""
-var quote := 0
+## Visit IDs in insertion order. Each unpaid basket holds one unit at a fixed price.
+var reservations: Dictionary[int, Dictionary] = {}
 
 func _init() -> void:
-	d = {"schema": SCHEMA, "cash": 95, "xp": 0, "open": false, "expanded": false,
+	d = {"schema": SCHEMA, "cash": 95, "xp": 0, "open": false, "expanded": false, "queue_lane": false,
 		"revenue": 0, "spend": 0, "receipt": 0, "clock": 510.0, "pos": [0.0, 0.1, 5.0],
 		"yaw": 0.0, "flags": {}, "log": [], "carry": "", "quantity": 0, "goods": {}}
 	for id in catalog:
@@ -93,14 +97,25 @@ func toggle_open() -> String:
 	if not d.open and available().is_empty(): return "Fill a display before opening."
 	d.open = not d.open
 	if d.open: mark("open")
-	else: cancel_basket()
+	else:
+		reservations.clear()
+		closed.emit()
 	changed.emit()
 	return "The shop is open." if d.open else "The shop is closed."
+
+func customer_limit() -> int:
+	return QUEUE_LIMIT if d.queue_lane else 1
+
+func on_display(id: String) -> int:
+	var count := int(d.goods[id].shelf)
+	for item in reservations.values():
+		if item.id == id: count -= 1
+	return count
 
 func available() -> Array:
 	var ids := []
 	for id in catalog:
-		if d.goods[id].shelf > 0: ids.append(id)
+		if on_display(id) > 0: ids.append(id)
 	return ids
 
 func choose_product(visit: int) -> String:
@@ -112,23 +127,28 @@ func choose_product(visit: int) -> String:
 		if d.goods[id].price <= budget: return id
 	return ""
 
-func reserve(id: String) -> bool:
-	if not d.open or basket != "" or not catalog.has(id) or d.goods[id].shelf < 1: return false
-	basket = id
-	quote = int(d.goods[id].price)
+func reserve(visit: int, id: String) -> bool:
+	if not d.open or visit < 1 or reservations.has(visit) or reservations.size() >= customer_limit():
+		return false
+	if not catalog.has(id) or on_display(id) < 1:
+		return false
+	reservations[visit] = {"id": id, "price": int(d.goods[id].price)}
+	display_changed.emit()
 	return true
 
-func cancel_basket() -> void:
-	basket = ""
-	quote = 0
+func cancel_basket(visit: int) -> void:
+	if reservations.erase(visit):
+		display_changed.emit()
 
-func checkout() -> String:
-	if basket == "" or not d.open: return "No basket at the till."
-	var id := basket
-	var paid := quote
-	cancel_basket()
+func checkout(visit: int) -> String:
+	if not d.open or reservations.is_empty() or reservations.keys().front() != visit:
+		return "Serve the first shopper in line."
+	var item := reservations[visit]
+	var id: String = item.id
+	var paid: int = item.price
 	var g: Dictionary = d.goods[id]
 	if g.shelf < 1: return "Item unavailable."
+	reservations.erase(visit)
 	g.shelf -= 1
 	g.sold += 1
 	d.revenue += paid
@@ -153,6 +173,15 @@ func expand() -> String:
 	changed.emit()
 	return "Extended displays • 12 spaces per product."
 
+func install_queue_lane() -> String:
+	if d.queue_lane: return "Checkout lane already installed."
+	if not d.flags.has("sale"): return "Take the first payment to unlock the checkout lane."
+	if d.cash < QUEUE_LANE_COST: return "The checkout lane costs $%d." % QUEUE_LANE_COST
+	d.cash -= QUEUE_LANE_COST
+	d.queue_lane = true
+	changed.emit()
+	return "Checkout lane installed. Up to three shoppers can visit at once."
+
 func cost_of_sales() -> int:
 	var total := 0
 	for id in catalog: total += int(d.goods[id].sold * catalog[id].cost)
@@ -166,12 +195,15 @@ func restore(raw: Variant) -> bool:
 	var s: Dictionary = raw.duplicate(true)
 	if int(s.schema) == 1:
 		s["yaw"] = 0.0
+		s.schema = 2
+	if int(s.schema) == 2:
+		s["queue_lane"] = false
 		s.schema = SCHEMA
 	s.schema = int(s.schema)
 	for k in ["cash", "xp", "revenue", "spend", "receipt", "quantity"]:
 		if not whole(s.get(k), 0): return false
 		s[k] = int(s[k])
-	if not s.get("open") is bool or not s.get("expanded") is bool: return false
+	if not s.get("open") is bool or not s.get("expanded") is bool or not s.get("queue_lane") is bool: return false
 	if not s.get("goods") is Dictionary or not s.get("flags") is Dictionary: return false
 	if not s.get("carry") is String or s.quantity > 6 or (s.quantity == 0) != (s.carry == ""): return false
 	if s.quantity > 0 and not catalog.has(s.carry): return false
@@ -199,5 +231,5 @@ func restore(raw: Variant) -> bool:
 		if not (val is float or val is int) or not is_finite(float(val)): return false
 	if absf(s.pos[0]) > 36 or absf(s.pos[2]) > 28 or absf(s.pos[1]) > 12 or s.clock < 0 or s.clock >= 1440: return false
 	d = s
-	cancel_basket()
+	reservations.clear()
 	return true
