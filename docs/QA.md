@@ -28,3 +28,11 @@ The public download was retrieved and checked against the published digest. File
 - Play for ten minutes outdoors and inside; record phone model, Android version, preset, heat, camera hitches, UI overlap and customer behavior. The 30 FPS and 60 FPS settings are targets, not measured phone frame rates.
 
 Matched-key stable APK-over-APK update, physical-device rendering, touch ergonomics, audio mix, battery life and thermal performance require further testing.
+
+## Checkout lane, version 0.2.0
+
+Godot 4.6.3 on Linux passed 126 checks, including body clearance through the shop, three distinct queue positions, fixed quotes, FIFO payment, stale taps, final-unit contention, returning unpaid baskets, schema 1/2 restoration and closing at 43 different times. The fixed-seed 18,000-action test now mixes three visit IDs with purchases and cancellations. It passed 900 save round-trips and preserved stock and cash.
+
+The Android workflow additionally seeds a progressed shift in the disposable internal app after the original fresh-start and relaunch test. It verifies the three-shopper checkout prompt, taps two consecutive payments, and checks the saved receipts, cash, revenue and remaining stock. See the workflow run for the result. The seed skips setup for this device scenario. The Godot integration suite buys both upgrades through the UI.
+
+On a phone, buy the checkout lane for $32 after the first sale. Stock at least three units. Let the line fill, take two payments and verify each receipt. Close the shop before serving the third shopper and check that the unpaid parcel is back on display.

@@ -229,7 +229,7 @@ func boat(x: float,z: float,angle: float) -> void:
 
 func refresh(m: Market) -> void:
 	door_label.text = "OPEN" if m.d.open else "CLOSED"
-	var stamp := str([m.d.expanded,m.d.goods.tea.shelf,m.d.goods.soap.shelf,m.d.goods.cocoa.shelf])
+	var stamp := str([m.d.expanded,m.d.queue_lane,m.on_display("tea"),m.on_display("soap"),m.on_display("cocoa")])
 	if stock_stamp == stamp: return
 	stock_stamp = stamp
 	if products: products.queue_free()
@@ -237,13 +237,18 @@ func refresh(m: Market) -> void:
 	add_child(products)
 	for row in 3:
 		var id: String = ["tea","soap","cocoa"][row]
-		for i in int(m.d.goods[id].shelf):
+		for i in m.on_display(id):
 			var x := -6.12 + (i%6)*0.51
 			var y := 0.56 + row*0.67
 			var z := -7.36 - floori(i/6.0)*0.48
 			products.box(x,y,z,0.38,0.35,0.34,m.catalog[id].color)
 			products.box(x,y,z+0.174,0.27,0.13,0.012,CREAM)
 		if m.d.expanded: products.box(-4.8,0.42+row*0.67,-8.07,3.36,0.12,0.4,TEAL)
+	if m.d.queue_lane:
+		for i in Market.QUEUE_LIMIT:
+			var x := CustomerFlow.TILL.x - CustomerFlow.SPACING * i
+			products.box(x,0.052,CustomerFlow.TILL.z,0.67,0.016,0.72,TEAL)
+			products.box(x,0.063,CustomerFlow.TILL.z-0.24,0.46,0.008,0.036,CREAM)
 	products.bake()
 
 func time_of_day(minutes: float) -> void:

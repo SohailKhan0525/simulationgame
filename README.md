@@ -1,6 +1,6 @@
 # Qofeno Simulation
 
-Run Harbor Market, a small provisions shop on a walkable waterfront. Start with $95, order your first carton, stock the shelves and open the doors. A shopper chooses an affordable item and brings it to the till. The first payment unlocks a display extension. Your shift, prices, receipts and upgrades persist on the phone.
+Run Harbor Market, a small provisions shop on a walkable waterfront. Start with $95, order your first carton, stock the shelves and open the doors. A shopper chooses an affordable item and brings it to the till. The first payment unlocks two upgrades. Extend the shelves or mark out a checkout lane for three shoppers. Your shift, prices, receipts and upgrades persist on the phone.
 
 **Development status** • The Harbor Market district is an internal Android playtest. The hotel, computer store and café appear as future premises. Install the [verified 0.1.0 Android APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-bd1646b866e1/Qofeno-Simulation-0.1.0-internal.apk) (85.2 MB). The [playtest release](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-bd1646b866e1) includes its checksum and Android screenshots.
 
@@ -22,7 +22,7 @@ Run Harbor Market, a small provisions shop on a walkable waterfront. Start with 
 | Order | Use the rear-right computer, choose Orders, and buy a carton. The first tea carton costs $20 for five units. |
 | Carry and stock | Collect the carton at the front-left pallet. Bring it to the rear-left display and stock it. Product boxes appear on the shelf. |
 | Trade | Use the sign beside the door to open. Wait for the shopper to browse and reach the till, then use Checkout to take payment. |
-| Reinvest | At the computer, review receipts, set prices, and install the $45 display extension after the first sale. Every fifth sale awards a $5 trading bonus. |
+| Reinvest | At the computer, review receipts, set prices, and install the $45 display extension after the first sale. The $32 checkout lane admits up to three shoppers. Each chooses a product at its current price, then waits their turn. Every fifth sale awards a $5 trading bonus. |
 | Save and explore | Pause → Save now. Map shows your position and destination. Earnings and stock mutations save after each completed action. |
 
 For desktop development use WASD or arrow keys, Shift to run, right-drag to look, E to interact, M for map and Escape to go back.

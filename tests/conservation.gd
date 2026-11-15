@@ -6,17 +6,19 @@ func _initialize():
 	var ids := m.catalog.keys()
 	for i in 18000:
 		var id: String = ids[rng.randi_range(0,ids.size()-1)]
-		match rng.randi_range(0,9):
+		var visit := rng.randi_range(1,3)
+		match rng.randi_range(0,10):
 			0: m.order(id)
 			1: m.collect(id)
 			2: m.put_back()
 			3: m.stock()
 			4: m.toggle_open()
-			5: m.reserve(id)
-			6: m.checkout()
+			5: m.reserve(visit,id)
+			6: m.checkout(visit)
 			7: m.set_price(id,1 if i%2==0 else -1)
 			8: m.expand()
-			9: m.cancel_basket()
+			9: m.cancel_basket(visit)
+			10: m.install_queue_lane()
 		if i%20 == 0:
 			var saved := JSON.stringify(m.d)
 			if not m.restore(JSON.parse_string(saved)):
@@ -26,9 +28,13 @@ func _initialize():
 		var value_in_goods := 0
 		for k in m.catalog:
 			var g: Dictionary = m.d.goods[k]
+			if m.on_display(k) < 0 or m.on_display(k) > g.shelf:
+				printerr("Invalid reservation count at ", i)
+				quit(1)
+				return
 			var count := int(g.back+g.shelf+g.sold)+(int(m.d.quantity) if m.d.carry==k else 0)
 			value_in_goods += count*int(m.catalog[k].cost)
-		var expected := 95 + int(m.d.revenue) - int(m.d.spend) - (45 if m.d.expanded else 0) + floori(m.d.receipt/5.0)*5
+		var expected := 95 + int(m.d.revenue) - int(m.d.spend) - (Market.EXPANSION if m.d.expanded else 0) - (Market.QUEUE_LANE_COST if m.d.queue_lane else 0) + floori(m.d.receipt/5.0)*5
 		if m.d.cash!=expected or m.d.spend!=value_in_goods:
 			printerr("Conservation failed ",i)
 			quit(1)
