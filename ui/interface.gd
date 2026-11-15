@@ -452,6 +452,7 @@ func station(id: String) -> void:
 				var basket_row := row(body)
 				product_photo(basket_row,item.id,Vector2(65,81))
 				var receipt := column(basket_row)
+				receipt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				text(receipt,m.catalog[item.id].name,24,PAPER,true)
 				text(receipt,"1 item    /    $%d each" % item.price,16,MUTED)
 				text(body,"Total    $%d.00" % item.price,31,PAPER,true)

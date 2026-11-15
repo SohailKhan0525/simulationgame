@@ -41,6 +41,39 @@ func outfit(variant: int, wardrobe := -1) -> void:
 	add_child(carton)
 	pose("Idle")
 
+func hold_product(id: String, color: Color) -> void:
+	var wrap := StandardMaterial3D.new()
+	wrap.albedo_color = color
+	wrap.roughness = 0.75
+	var dimensions := Vector3(0.31,0.32,0.21)
+	if id == "cocoa":
+		var tin := CylinderMesh.new()
+		tin.top_radius = 0.12
+		tin.bottom_radius = 0.12
+		tin.height = 0.31
+		tin.radial_segments = 18
+		tin.rings = 0
+		tin.material = wrap
+		carton.mesh = tin
+		dimensions = Vector3(0.18,0.27,0.24)
+	else:
+		if id == "soap": dimensions = Vector3(0.27,0.19,0.16)
+		var pack := BoxMesh.new()
+		pack.size = dimensions
+		pack.material = wrap
+		carton.mesh = pack
+	var ink := StandardMaterial3D.new()
+	ink.albedo_texture = load("res://assets/packaging/%s.png" % id)
+	var face := QuadMesh.new()
+	face.size = Vector2(dimensions.x,dimensions.y)*0.94
+	face.material = ink
+	var label := MeshInstance3D.new()
+	label.mesh = face
+	carton.add_child(label)
+	label.position.z = dimensions.z*0.5+0.003
+	carton.show()
+	hands.carrying = true
+
 func pose(clip: String, pace := 1.0) -> void:
 	if not clips.has(clip): return
 	if current != clip:

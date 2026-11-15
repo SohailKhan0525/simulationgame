@@ -216,6 +216,15 @@ func integration() -> void:
 	game.player.position=Vector3(4.5,0.08,-1.9)
 	game.update_location()
 	game.interact()
+	await process_frame
+	await process_frame
+	var pay_button: Button
+	for control in game.ui.stage.find_children("*","Button",true,false):
+		if control.text.begins_with("Take payment"): pay_button = control
+	var receipt_width := 0.0
+	for label in game.ui.body.find_children("*","Label",true,false):
+		if label.text == "Quayside tea": receipt_width = label.size.x
+	expect(receipt_width > 100 and pay_button != null and game.ui.body.get_parent().get_global_rect().encloses(pay_button.get_global_rect()),"basket name and payment fit inside the mobile till sheet")
 	expect(click_caption(game.ui.stage,"Take payment") and game.market.d.receipt==1,"cashier completes customer sale")
 	game.player.position=Vector3(4.6,0.08,-7.1)
 	game.interact()

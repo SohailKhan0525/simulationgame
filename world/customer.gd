@@ -136,13 +136,7 @@ func select_item(shopper: Shopper) -> void:
 	line.append(shopper)
 	shopper.phase = Phase.TO_LINE
 	shopper.route.assign([Vector3(1.25,0.055,-6.27), LINE_START])
-	var parcel := shopper.person.carton
-	parcel.scale = Vector3(0.67,0.69,0.70)
-	var wrap := StandardMaterial3D.new()
-	wrap.albedo_color = Color(market.catalog[id].color)
-	parcel.material_override = wrap
-	parcel.show()
-	shopper.person.hands.carrying = true
+	shopper.person.hold_product(id, Color(market.catalog[id].color))
 	changed.emit()
 
 func advance(shopper: Shopper, destination: Vector3, delta: float) -> bool:
