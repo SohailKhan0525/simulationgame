@@ -2,11 +2,11 @@
 
 Run Harbor Market on Quay Road. Prepare before 08:00 opening, order supplies at the shop computer, fill displays and scan customer purchases. Hire a cashier, license three more groceries and drive the estate along the waterfront. At 21:00 the doors close to new customers. Settle the last baskets, read the day’s statement and open again the next morning.
 
-**Android playtest 0.3.0 · Waterfront** — [Download the 97.9 MB APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/Qofeno-Simulation-0.3.0-internal.apk) or [open the release and checksum](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-75730294c497). This internal edition starts at eye level. Settings also offers a third-person view. The hotel, computer store and café are future premises.
+**Android playtest 0.4.0 · Opening Hours** — [Download the 97.9 MB APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/Qofeno-Simulation-0.4.0-internal.apk) or [open the verified release and checksum](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-a5559630b84b). This internal APK starts a fresh local installation when its debug signature differs from an earlier playtest. Uninstalling the earlier build deletes its shift.
 
-![The waterfront street in the installed Android build](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/waterfront-street.png)
+![Quay Road at sunset and at night on the Android emulator](docs/visuals/quay-evening.jpg)
 
-[Stocked pantry](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/pantry-display.png) · [Checkout](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/queue-first-basket.png) · [Android build and device test](https://github.com/SohailKhan0525/simulationgame/actions/runs/43736526106)
+[Full sunset frame](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/quay-sunset.png) · [Full night frame](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/quay-night.png) · [Workstation](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/workstation.png) · [Mixed purchase](docs/visuals/wholesale-order.jpg) · [Driving](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/drive-estate.png) · [Daily statement](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/daily-report.png) · [Build and emulator evidence](https://github.com/SohailKhan0525/simulationgame/actions/runs/43747488356) · [Handoff](docs/OPENING_HOURS_HANDOFF.md)
 
 ## Play on Android
 

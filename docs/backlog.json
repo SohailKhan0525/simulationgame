@@ -40,18 +40,20 @@
     "east_pier_carton_pickups"
   ],
   "verified_build": {
-    "source_commit": "75730294c4977a7958c9cb87c29568dfa522cf80",
-    "release_tag": "internal-75730294c497",
-    "workflow_run": 43736526106,
-    "download": "https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/Qofeno-Simulation-0.3.0-internal.apk",
-    "sha256": "e8c6d29de20655ed4dcfc3e9e143b91f832aa0fec66fd081e63963a367c18e79",
-    "device": "Android 15 / x86_64 Pixel 5 emulator",
+    "source_commit": "a5559630b84befd4ca34252d9afa2e9549b9bed1",
+    "release_tag": "internal-a5559630b84b",
+    "workflow_run": 43747488356,
+    "download": "https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/Qofeno-Simulation-0.4.0-internal.apk",
+    "sha256": "b9419b2c6ae13284ace4d81b1fc0e9949a8bcef14430a01be6d1bc44270228c4",
+    "version_code": 4,
+    "device": "Android 15 / Pixel 5 x86_64 emulator",
     "phone_qa": "pending",
-    "version_code": 3,
     "screenshots": [
-      "https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/waterfront-street.png",
-      "https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/pantry-display.png",
-      "https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/queue-first-basket.png"
+      "https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/quay-sunset.png",
+      "https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/quay-night.png",
+      "https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/supplier-cart.png",
+      "https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/drive-estate.png",
+      "https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/daily-report.png"
     ]
   },
   "pending": [

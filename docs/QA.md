@@ -35,7 +35,7 @@ Godot 4.6.3 on Linux passed 126 checks, including body clearance through the sho
 
 The Android workflow additionally seeds a progressed shift in the disposable internal app after the original fresh-start and relaunch test. It verifies the three-shopper checkout prompt, taps two consecutive payments, and checks the saved receipts, cash, revenue and remaining stock. See the workflow run for the result. The seed skips setup for this device scenario. The Godot integration suite buys both upgrades through the UI.
 
-On a phone, buy the checkout lane for $32 after the first sale. Stock at least three units. Let the line fill, take two payments and verify each receipt. Close the shop before serving the third shopper and check that the unpaid parcel is back on display.
+For the 0.2 playtest on a phone, buy the checkout lane for $32 after the first sale. Stock at least three units. Let the line fill, take two payments and verify each receipt. Close the shop before serving the third shopper and check that the unpaid parcel is back on display.
 
 ## Waterfront art acceptance, 0.3.0
 
@@ -50,3 +50,10 @@ The emulator installed the APK, tapped Start, moved the player from the opening 
 The independently downloaded release APK was 97,856,370 bytes. SHA-256 `e8c6d29de20655ed4dcfc3e9e143b91f832aa0fec66fd081e63963a367c18e79`. Android Build Tools verified v2/v3 signatures, package `com.qofeno.simulation.internal`, version 0.3.0 (3), minimum SDK 24 and target SDK 36. The APK is debug-signed. The Android fingerprint was `Android/sdk_phone64_x86_64/emu64x:15/AE3A.240806.019/12368160:userdebug/test-keys`. Hardware performance and production-key upgrade acceptance remain pending.
 
 [Street framebuffer](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/waterfront-street.png) · [Pantry framebuffer](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/pantry-display.png) · [Touch checkout](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-75730294c497/queue-first-basket.png)
+
+## Opening Hours 0.4.0
+
+[Release verification and exact device outcomes](OPENING_HOURS_HANDOFF.md) · [Build logs and screenshots](https://github.com/SohailKhan0525/simulationgame/actions/runs/43747488356). The review caught an oversized computer title bar and cash drawer. Both were corrected and rechecked on the APK.
+
+
+Run 43747488356 passed on attempt 2. The emulator host graphics process exited during the first attempt. [PR run 43747490109](https://github.com/SohailKhan0525/simulationgame/actions/runs/43747490109) also passed the full Android sequence. The verified APK downloaded from the public release matches the successful second attempt's artifact digest and signer.
