@@ -37,9 +37,12 @@ def control(word, filename, box=(0,0,1,1), tap=True):
         crop = crop.resize((crop.width*2,crop.height*2))
         stream = io.BytesIO()
         crop.save(stream,format="PPM")
-        for mode in ("11","7","6"):
-            ocr = subprocess.run(["tesseract","stdin","stdout","--psm",mode,"tsv"],
-                                 input=stream.getvalue(),capture_output=True,timeout=10,check=True)
+        for mode in ("7","11"):
+            try:
+                ocr = subprocess.run(["tesseract","stdin","stdout","--psm",mode,"tsv"],
+                                     input=stream.getvalue(),capture_output=True,timeout=15,check=True)
+            except subprocess.TimeoutExpired:
+                continue
             rows = csv.DictReader(io.StringIO(ocr.stdout.decode()),delimiter="\t")
             for row in rows:
                 if row["text"].strip(".,·").casefold() != word.casefold(): continue
@@ -68,8 +71,8 @@ launch()
 screen("Continue", "queue-continue.png", True)
 screen("full-line", "queue-floor.png", True)
 screen("Scan", "queue-first-basket.png", True)
-control("Add","queue-cash-drawer.png",(.6,.25,.99,.92))
-control("Add","queue-cash-change.png",(.6,.25,.99,.92))
+control("Add","queue-cash-drawer.png",(.829,.645,.902,.728))
+control("Add","queue-cash-change.png",(.829,.645,.902,.728))
 screen("payment", "queue-cash-paid.png", True)
 screen("ready-line", "queue-advance.png", True)
 screen("Scan", "queue-second-basket.png", True)
@@ -130,7 +133,7 @@ control("Add","wholesale.png",(.57,.352,.68,.445))
 control("Household","mixed-order.png",(.174,.245,.282,.32))
 control("Add","soap-order.png",(.57,.352,.68,.445))
 control("Review","supplier-cart.png",(.72,.869,.955,.946))
-control("Place","purchase-review.png",(.13,.40,.25,.62))
+control("Place","purchase-review.png",(.132,.477,.245,.555))
 control("Ledger","supplier-paid.png",(.131,.04,.35,.126),False)
 order = background()
 assert order["cash"] == 29 and order["goods"]["tea"]["back"]==5 and order["goods"]["soap"]["back"]==6, order
@@ -147,6 +150,7 @@ shell("am","force-stop",package)
 launch()
 screen("Continue","drive-relaunch.png",True)
 control("out","drive-restored.png",(.86,.681,.98,.766))
+control("Run","drive-exited.png",(.904,.781,.976,.845),False)
 assert not background()["driving"]
 
 stage([2.17,0.08,0.9],1259.5)

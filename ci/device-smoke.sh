@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Hosted runner, disposable AVD. Capture the installed app's own framebuffer.
 set -euo pipefail
+# Leave the software-rendered emulator a CPU while recognizing its small HUD crops.
+export OMP_THREAD_LIMIT=1
 out="${RUNNER_TEMP}/qofeno-device"
 mkdir -p "$out" build/device
 sdk="$ANDROID_HOME/cmdline-tools/latest/bin"
