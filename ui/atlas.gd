@@ -2,11 +2,12 @@ class_name HarborAtlas
 extends Control
 
 var places: Array = []
+var car_pos := Vector3.ZERO
 var player_pos := Vector3.ZERO
 var target := Vector2(0,-4)
 
 func plotted(x: float, z: float) -> Vector2:
-	return Vector2((x+35)/70.0*size.x, (z+14)/41.0*size.y)
+	return Vector2((x+76)/152.0*size.x, (z+14)/41.0*size.y)
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO,size),Color("eee3c8"))
@@ -22,6 +23,8 @@ func _draw() -> void:
 		draw_string(ThemeDB.fallback_font,pt+Vector2(-24,-20),str(p.name).split(" ")[0],HORIZONTAL_ALIGNMENT_LEFT,-1,13,Color("243e3e"))
 	var mark := plotted(target.x,target.y)
 	draw_arc(mark,20,0,TAU,32,Color("c67349"),2,true)
+	var car := plotted(car_pos.x,car_pos.z)
+	draw_rect(Rect2(car-Vector2(6,3),Vector2(12,6)),Color("334e61"))
 	var here := plotted(player_pos.x,player_pos.z)
 	draw_circle(here,7,Color.WHITE,true,-1,true)
 	draw_circle(here,4.7,Color("b75535"),true,-1,true)

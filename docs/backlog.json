@@ -1,5 +1,5 @@
 {
-  "checkpoint": "0.3.0-internal",
+  "checkpoint": "0.4.0-internal",
   "engine": "4.6.3-stable",
   "entry_scene": "res://world/main.tscn",
   "validation": "bash ci/validate.sh",
@@ -26,7 +26,17 @@
     "scanned_street_materials",
     "printed_packages",
     "compact_checkout",
-    "direct_shelf_stocking"
+    "direct_shelf_stocking",
+    "workstation_apps",
+    "mixed_cart_receiving",
+    "dry_goods_licence",
+    "cashier_shift_contract",
+    "scan_cash_change_card",
+    "retail_day_settlement",
+    "sunset_and_night_lights",
+    "road_traffic",
+    "drive_park_save",
+    "schema_4_migration"
   ],
   "verified_build": {
     "source_commit": "75730294c4977a7958c9cb87c29568dfa522cf80",
@@ -68,11 +78,6 @@
       "id": "computer-and-gaming",
       "priority": 2,
       "done_when": "Implement second owned retail operator and migrate existing saves."
-    },
-    {
-      "id": "vehicles",
-      "priority": 3,
-      "done_when": "Enter, drive, park and leave a delivery vehicle using touch."
     },
     {
       "id": "dealership-fuel",

@@ -55,7 +55,7 @@ jobs:
           retention-days: 14
           if-no-files-found: error
       - name: Boot APK on Android 15 and restore a shift
-        timeout-minutes: 12
+        timeout-minutes: 20
         run: |
           if ! command -v tesseract || ! /usr/bin/python3 -c "import PIL"; then sudo apt-get update -qq && sudo apt-get install -y tesseract-ocr python3-pil; fi
           package=com.qofeno.simulation.internal
@@ -115,11 +115,11 @@ jobs:
           tag="internal-${GITHUB_SHA:0:12}"
           git_version=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" package.txt | head -1)
           cat > notes.md <<NOTES
-          Internal Android playtest of Harbor Market. Explore the rebuilt waterfront at eye level, stock printed packages and take payments at the new register. Buy the checkout lane at the desk for 32 dollars after the first sale. Three shoppers can collect parcels and queue for the till.
+          Work a complete trading day at Harbor Market. Order mixed cartons on the store computer, scan goods, handle cash or card, hire a cashier and unlock dry groceries. Street traffic runs along the quay. Drive the estate with touch steering and pedals. At 21:00, finish the remaining baskets and review the day at the door sign.
 
           Debug-signed internal package. Future test builds may use different signing keys. Stable releases use a separate package and save slot. Keep this build installed to retain this shift.
 
           Commit: $GITHUB_SHA
           CI: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           NOTES
-          gh release create "$tag" *.apk *.sha256 manifest.json device/first-shift.png device/menu.png device/queue-floor.png device/queue-first-basket.png device/waterfront-street.png device/pantry-display.png --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Harbor Market $git_version · internal Android playtest" --notes-file notes.md
+          gh release create "$tag" *.apk *.sha256 manifest.json device/first-shift.png device/menu.png device/queue-floor.png device/queue-first-basket.png device/waterfront-street.png device/pantry-display.png device/workstation.png device/supplier-cart.png device/drive-estate.png device/daily-report.png device/next-morning.png --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Harbor Market $git_version · internal Android playtest" --notes-file notes.md

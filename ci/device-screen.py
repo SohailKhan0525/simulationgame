@@ -21,7 +21,7 @@ def region(frame, word):
         return int(width * 0.79), int(height * 0.878), int(width * 0.981), int(height * 0.956)
     # Find the solid primary action within the menu or right-hand till sheet.
     # Use the actual button bounds so shorter labels and phone insets can vary.
-    if word == "payment":
+    if word in {"payment","Scan"}:
         left, right, top, bottom = 0.60, 0.99, 0.22, 0.94
     else:
         left, right, top, bottom = 0.02, 0.43, 0.28, 0.94
