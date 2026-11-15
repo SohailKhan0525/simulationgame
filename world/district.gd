@@ -25,17 +25,20 @@ func _ready() -> void:
 	outside.sky = sky
 	outside.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	outside.ambient_light_color = Color("f8e6cc")
-	outside.ambient_light_energy = 0.8
+	outside.ambient_light_energy = 0.67
+	outside.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	outside.tonemap_white = 4.0
 	var environment := WorldEnvironment.new()
 	environment.environment = outside
 	add_child(environment)
 	sun.rotation_degrees = Vector3(-49,-28,0)
 	sun.light_color = Color("ffead0")
-	sun.light_energy = 1.0
+	sun.light_energy = 0.78
 	sun.directional_shadow_max_distance = 44
 	add_child(sun)
 	waterfront()
 	shop()
+	shop_details()
 	facade(-16, 13, 9, "b77a68", "TIDE HOTEL")
 	facade(16, 11, 7.7, "b5ae8b", "RELAY COMPUTERS")
 	facade(27, 9, 6.3, "d8a176", "PIER CAFÉ")
@@ -50,11 +53,15 @@ func _ready() -> void:
 	bake()
 
 func waterfront() -> void:
-	box(0,-0.44,0,68,0.8,53,"bcad95")
+	box(0,-0.44,0,68,0.8,53,"a6957f")
 	solid(Vector3(0,-0.5,0),Vector3(68,1,52))
 	box(0,-0.025,12.5,68,0.05,8,"596360")
 	for x in range(-32,34,5): box(x,0.012,12.5,2.25,0.018,0.12,CREAM)
 	for z in range(9,17): box(-10,0.018,z,2.5,0.02,0.48,"e0dbc7")
+	for band in range(-16,17):
+		for j in 3:
+			var center := band*2.0+(1 if j%2 else 0)
+			box(center,0.005,1.4+j*2.3,1.96,0.014,2.25,["b9ad9a","c2b39d","baac96","c6b8a3"][posmod(band*7+j*3,4)])
 	for z in [8.3,16.7]:
 		box(0,0.03,z,68,0.06,0.27,"d4caba")
 	for x in range(-34,35,2):
@@ -82,6 +89,7 @@ func shop() -> void:
 		box(x,0.52,0,5.22,1.04,0.23,TEAL,true)
 		# Open transoms and mullions admit daylight. Glass line also blocks traversal.
 		solid(Vector3(x,1.9,0),Vector3(5.22,2,0.2))
+		part("glass",Vector3(x,1.85,0.045),Vector3(5.15,1.6,0.025),"9ec2b8")
 		for j in 4: box(x-2.55+j*1.7,1.96,0,0.1,1.95,0.18,TEAL)
 		box(x,2.6,0,5.25,0.1,0.15,TEAL)
 	for x in [-1.79,1.79]: box(x,1.54,0,0.16,3.08,0.28,TEAL,true)
@@ -125,6 +133,56 @@ func shop() -> void:
 	door_label = label3("CLOSED",Vector3(2.65,1.54,0.186),0.22,"fff0c9")
 	box(2.65,1.54,0.14,1.22,0.47,0.05,IRON)
 
+func shop_details() -> void:
+	# Painted timber panels and brass trim below the front windows.
+	for side in [-1,1]:
+		for j in 4:
+			var x: float = side*(2.22+j*1.22)
+			box(x,0.51,0.135,1.04,0.67,0.055,"37615b")
+			box(x,0.51,0.17,0.91,0.56,0.025,"2a514e")
+		box(side*4.4,1.04,0.04,5.27,0.095,0.41,"ac7853")
+		box(side*4.4,3.34,0.215,5.0,0.035,0.035,"d0af73")
+	box(0,3.44,0.213,13.7,0.036,0.035,"c9a46d")
+	box(0,0.045,0.75,2.75,0.045,1.25,"7b6957")
+	for i in 16: box(-1.27+i*0.17,0.071,0.75,0.035,0.015,1.15,"a39476")
+	# Hanging porcelain shades and distinct shop zones mounted on surfaces.
+	for x in [-4,0,4]:
+		box(x,3.68,-6.8,0.027,1.25,0.027,IRON)
+		part("crown",Vector3(x,3.1,-6.8),Vector3(0.75,0.31,0.75),"32716a")
+		part("tube",Vector3(x,3.02,-6.8),Vector3(0.65,0.045,0.65),"ffe5ad")
+	for k in 3:
+		var x := -5.95+k*1.16
+		box(x,2.33,-9.78,1.01,0.51,0.06,["ab704d","628c72","95728a"][k])
+		label3(["TEA","SOAP","COCOA"][k],Vector3(x,2.33,-9.74),0.17,"fff1d4")
+	box(4.65,2.42,-9.76,2.05,1.03,0.11,TIMBER)
+	box(4.65,2.42,-9.685,1.89,0.89,0.04,"9d8666")
+	for i in 3:
+		box(4.08+i*0.54,2.45-(i%2)*0.1,-9.65,0.38,0.52,0.015,["ead9aa","d6bba0","e6d6b4"][i])
+		for line in 3: box(4.08+i*0.54,2.55-(i%2)*0.1-line*0.075,-9.633,0.24,0.013,0.009,"877c68")
+	box(-6.8,1.73,-2.9,0.04,0.62,1.93,TEAL)
+	label3("RECEIVING",Vector3(-6.765,1.74,-2.9),0.21,CREAM,PI/2)
+	# Freestanding chalkboard with a wood frame on the sidewalk.
+	var x := -3.15
+	for dx in [-0.46,0.46]:
+		part("wood",Vector3(x+dx,0.64,1.7),Vector3(0.095,1.29,0.10),TIMBER,-0.1)
+		part("wood",Vector3(x+dx,0.64,1.30),Vector3(0.095,1.29,0.10),TIMBER,0.18)
+	box(x,0.85,1.70,0.91,0.84,0.1,TIMBER)
+	box(x,0.85,1.77,0.78,0.71,0.04,IRON)
+	label3("DAILY",Vector3(x,1.0,1.806),0.16,CREAM)
+	label3("provisions",Vector3(x,0.79,1.806),0.11,"ddd4b4")
+	box(x,0.67,1.81,0.43,0.014,0.01,"cda568")
+	solid(Vector3(x,0.58,1.5),Vector3(1.04,1.16,0.68))
+	for px in [-6.45,6.45]: planter(px,0.91)
+
+func planter(x: float,z: float) -> void:
+	part("tube",Vector3(x,0.34,z),Vector3(0.78,0.64,0.78),"aa6953")
+	part("tube",Vector3(x,0.65,z),Vector3(0.85,0.12,0.85),"c98669")
+	part("tube",Vector3(x,0.72,z),Vector3(0.72,0.05,0.72),"625949")
+	for i in 8:
+		var a := i*2.4
+		part("crown",Vector3(x+cos(a)*0.24,0.99+(i%3)*0.10,z+sin(a)*0.24),Vector3(0.43,0.65,0.38),["577653","70895c","7b925e"][i%3],0.28,a)
+	solid(Vector3(x,0.43,z),Vector3(0.77,0.86,0.77))
+
 func facade(x: float, w: float, h: float, color: String, business: String) -> void:
 	box(x,h/2,-5.5,w,h,9.5,color,true)
 	box(x,0.46,-0.68,w+0.08,0.92,0.19,"d2c0a7")
@@ -152,9 +210,9 @@ func tree(x: float,z: float) -> void:
 	box(x,0.22,z,2.05,0.44,1.7,"b69379",true)
 	box(x,0.46,z,1.85,0.08,1.51,"746e57")
 	part("tube",Vector3(x,1.6,z),Vector3(0.32,2.8,0.32),TIMBER)
-	for j in 6:
+	for j in 12:
 		var angle := j*2.4
-		part("crown",Vector3(x+cos(angle)*0.83,3.05+(j%3)*0.44,z+sin(angle)*0.67),Vector3(2.5,2.2,2.15),["6b875a","8d9e64","597b5c"][j%3],0,angle)
+		part("crown",Vector3(x+cos(angle)*1.03,3.05+(j%4)*0.32,z+sin(angle)*0.82),Vector3(1.68,1.55,1.55),["57774e","7b8d55","476b51"][j%3],0,angle)
 
 func bench(x: float,z: float) -> void:
 	for ax in [x-0.8,x+0.8]:
@@ -190,6 +248,6 @@ func refresh(m: Market) -> void:
 
 func time_of_day(minutes: float) -> void:
 	var daylight := clampf(sin((minutes-360.0)/1440.0*TAU),0,1)
-	sun.light_energy = lerpf(0.16,1.2,daylight)
+	sun.light_energy = lerpf(0.15,0.88,daylight)
 	sun.rotation_degrees.x = -20-daylight*42
 	sky_material.sky_top_color = Color("263e5c").lerp(Color("78aabd"),daylight)

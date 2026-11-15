@@ -18,9 +18,9 @@ test -s "$ANDROID_AVD_HOME/harbor.avd/config.ini"
 printf 'avd.ini.encoding=UTF-8\npath=%s\ntarget=android-35\n' "$ANDROID_AVD_HOME/harbor.avd" > "$ANDROID_AVD_HOME/harbor.ini"
 "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx harbor
 sudo chmod a+rw /dev/kvm
-"$ANDROID_HOME/emulator/emulator" -avd harbor -no-window -no-audio -no-boot-anim -no-snapshot -gpu "${QOFENO_EMULATOR_GPU:-lavapipe}" -cores 2 -memory 2500 > "$out/emulator.log" 2>&1 &
+"$ANDROID_HOME/emulator/emulator" -avd harbor -no-window -no-audio -no-boot-anim -no-snapshot -gpu "${QOFENO_EMULATOR_GPU:-host}" -cores 2 -memory 2500 > "$out/emulator.log" 2>&1 &
 emulator=$!
-trap 'status=$?; if (( status != 0 )); then "$adb" logcat -d -t 3000 > "$out/logcat.txt" 2>/dev/null || true; tail -50 "$out/emulator.log"; fi; kill "$emulator" 2>/dev/null || true' EXIT
+trap 'status=$?; if (( status != 0 )); then timeout 8 "$adb" shell dumpsys activity exit-info "$package" > "$out/exit-info.txt" 2>/dev/null || true; timeout 8 "$adb" shell dumpsys window > "$out/window.txt" 2>/dev/null || true; tail -12 "$out/emulator.log"; fi; kill "$emulator" 2>/dev/null || true' EXIT
 for _ in {1..90}; do
   if "$adb" devices | grep -q 'emulator-.*device$'; then break; fi
   kill -0 "$emulator" 2>/dev/null || { cat "$out/emulator.log"; exit 1; }
@@ -37,8 +37,17 @@ done
 "$adb" shell input keyevent KEYCODE_WAKEUP
 "$adb" shell wm dismiss-keyguard
 "$adb" shell settings put secure immersive_mode_confirmations confirmed
+"$adb" shell input keyevent 82
+"$adb" shell settings put global window_animation_scale 0
+"$adb" shell settings put global transition_animation_scale 0
+"$adb" shell settings put global animator_duration_scale 0
 "$adb" install -r build/*.apk
+# Wait for the first launcher task after boot and display reconfiguration.
+"$adb" shell am start -W -a android.intent.action.MAIN -c android.intent.category.HOME
+sleep 5
 "$adb" logcat -c
+"$adb" logcat -b main -b system -b crash > "$out/logcat.txt" 2>&1 &
+log_pid=$!
 launch() {
   "$adb" shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$package"
 }
@@ -52,6 +61,6 @@ launch
 python3 ci/device-screen.py "Continue" build/device/relaunch.png tap
 python3 ci/device-screen.py "Pause" build/device/continued-shift.png
 "$adb" shell pidof "$package"
-"$adb" logcat -d > "$out/logcat.txt"
+kill "$log_pid" 2>/dev/null || true
 if grep -E 'SCRIPT ERROR:|FATAL EXCEPTION:|Fatal signal [0-9]+.*qofeno|E godot *:.*ERROR:' "$out/logcat.txt"; then exit 1; fi
 "$adb" shell getprop ro.build.fingerprint > build/device/fingerprint.txt

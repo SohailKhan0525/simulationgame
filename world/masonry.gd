@@ -23,7 +23,7 @@ func part(kind: String, p: Vector3, size: Vector3, tint: String, rotation_x := 0
 func box(x: float, y: float, z: float, w: float, h: float, depth: float, tint: String, blocks := false) -> void:
 	var pos := Vector3(x,y,z)
 	var size := Vector3(w,h,depth)
-	part("block",pos,size,tint)
+	part("wood" if tint in ["ac7853","9c6847","bb8b61"] else "block",pos,size,tint)
 	if blocks: solid(pos,size)
 
 func label3(words: String, p: Vector3, height: float, ink: String, yaw := 0.0) -> Label3D:
@@ -46,8 +46,18 @@ func bake() -> void:
 	mat.roughness = 0.88
 	for key in pieces:
 		var mesh: PrimitiveMesh
+		var surface := mat.duplicate() as StandardMaterial3D
+		if key in ["block","wood"]:
+			surface.albedo_texture = load("res://assets/environment/timber.png" if key=="wood" else "res://assets/environment/limewash.png")
+			surface.uv1_triplanar = true
+			surface.uv1_world_triplanar = true
+			surface.uv1_scale = Vector3.ONE * (1.1 if key=="wood" else 0.9)
+		elif key == "glass":
+			surface.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			surface.albedo_color = Color(1,1,1,0.18)
+			surface.roughness = 0.24
 		match key:
-			"block":
+			"block","wood","glass":
 				mesh = BoxMesh.new()
 			"crown":
 				var sphere := SphereMesh.new()
@@ -64,7 +74,7 @@ func bake() -> void:
 				tube.bottom_radius = 0.5
 				tube.height = 1
 				mesh = tube
-		mesh.material = mat
+		mesh.material = surface
 		var batch := MultiMesh.new()
 		batch.transform_format = MultiMesh.TRANSFORM_3D
 		batch.use_colors = true
@@ -75,5 +85,6 @@ func bake() -> void:
 			batch.set_instance_color(i,pieces[key][i][1])
 		var node := MultiMeshInstance3D.new()
 		node.multimesh = batch
+		if key == "glass": node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(node)
 	pieces.clear()

@@ -48,10 +48,10 @@ jobs:
           command -v tesseract || (sudo apt-get update -qq && sudo apt-get install -y tesseract-ocr)
           package=com.qofeno.simulation.internal
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then package=com.qofeno.simulation; fi
-          if ! bash ci/device-smoke.sh "$package"; then
-            if ! grep -Eq 'Fragment shader active uniforms exceed|Invalid GPU mode|Failed to initialize EGL' "$RUNNER_TEMP"/qofeno-device/*.txt "$RUNNER_TEMP"/qofeno-device/*.log; then exit 1; fi
+          if ! LIBGL_ALWAYS_SOFTWARE=1 QOFENO_EMULATOR_GPU=host xvfb-run -a bash ci/device-smoke.sh "$package"; then
+            if ! grep -Eq 'Fragment shader active uniforms exceed|Invalid GPU mode|Failed to initialize EGL|Failed to bind to texture|eglInitialize failed|Could not initialize emulated framebuffer' "$RUNNER_TEMP"/qofeno-device/*.txt "$RUNNER_TEMP"/qofeno-device/*.log; then exit 1; fi
             mv "$RUNNER_TEMP/qofeno-device" "$RUNNER_TEMP/qofeno-device-first"
-            LIBGL_ALWAYS_SOFTWARE=1 QOFENO_EMULATOR_GPU=host xvfb-run -a bash ci/device-smoke.sh "$package"
+            QOFENO_EMULATOR_GPU=lavapipe bash ci/device-smoke.sh "$package"
           fi
       - name: Record verified APK
         run: |

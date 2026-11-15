@@ -32,8 +32,8 @@ func _ready() -> void:
 	player.footstep.connect(func(): sound.cue("step"))
 	flow.changed.connect(ui.refresh)
 	prefs.apply(get_viewport(),district.sun)
-	view.position = Vector3(10.4,4.7,12.9)
-	view.look_at(Vector3(-2.7,1.9,-1.0))
+	view.position = Vector3(-4.6,3.1,12.6)
+	view.look_at(Vector3(-4.2,1.9,-0.2))
 	view.fov = 61
 	show_menu()
 
@@ -90,6 +90,7 @@ func start(next: Market) -> void:
 	player.position = Vector3(market.d.pos[0],market.d.pos[1],market.d.pos[2])
 	player.yaw = market.d.yaw
 	player.pivot.rotation.y = player.yaw
+	player.person.rotation.y = player.yaw + PI
 	player.person.carton.visible = market.d.quantity > 0
 	player.person.hands.carrying = player.person.carton.visible
 	player.show()
