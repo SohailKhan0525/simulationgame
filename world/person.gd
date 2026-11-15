@@ -8,10 +8,20 @@ var current := ""
 var carton: MeshInstance3D
 var hands := WorkHands.new()
 
-func outfit(variant: int) -> void:
+func outfit(variant: int, wardrobe := -1) -> void:
 	var figure: Node3D = MODELS[variant % MODELS.size()].instantiate()
 	figure.scale = Vector3.ONE * 0.365
 	add_child(figure)
+	if wardrobe >= 0:
+		var palette := ["677d82","945b4a","828557","3c556c","ac845a","67596c"]
+		for piece: MeshInstance3D in figure.find_children("*","MeshInstance3D",true,false):
+			if piece.mesh == null: continue
+			for i in piece.mesh.get_surface_count():
+				var cloth := piece.mesh.surface_get_material(i) as StandardMaterial3D
+				if cloth and cloth.resource_name == "Shirt":
+					var fabric := cloth.duplicate() as StandardMaterial3D
+					fabric.albedo_color = Color(palette[wardrobe % palette.size()])
+					piece.set_surface_override_material(i,fabric)
 	var skeleton: Skeleton3D = figure.find_children("*","Skeleton3D",true,false)[0]
 	hands.attach(self,skeleton)
 	animator = figure.find_children("*","AnimationPlayer",true,false)[0]
@@ -30,6 +40,39 @@ func outfit(variant: int) -> void:
 	carton.visible = false
 	add_child(carton)
 	pose("Idle")
+
+func hold_product(id: String, color: Color) -> void:
+	var wrap := StandardMaterial3D.new()
+	wrap.albedo_color = color
+	wrap.roughness = 0.75
+	var dimensions := Vector3(0.31,0.32,0.21)
+	if id == "cocoa":
+		var tin := CylinderMesh.new()
+		tin.top_radius = 0.12
+		tin.bottom_radius = 0.12
+		tin.height = 0.31
+		tin.radial_segments = 18
+		tin.rings = 0
+		tin.material = wrap
+		carton.mesh = tin
+		dimensions = Vector3(0.18,0.27,0.24)
+	else:
+		if id == "soap": dimensions = Vector3(0.27,0.19,0.16)
+		var pack := BoxMesh.new()
+		pack.size = dimensions
+		pack.material = wrap
+		carton.mesh = pack
+	var ink := StandardMaterial3D.new()
+	ink.albedo_texture = load("res://assets/packaging/%s.png" % id)
+	var face := QuadMesh.new()
+	face.size = Vector2(dimensions.x,dimensions.y)*0.94
+	face.material = ink
+	var label := MeshInstance3D.new()
+	label.mesh = face
+	carton.add_child(label)
+	label.position.z = dimensions.z*0.5+0.003
+	carton.show()
+	hands.carrying = true
 
 func pose(clip: String, pace := 1.0) -> void:
 	if not clips.has(clip): return

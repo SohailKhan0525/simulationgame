@@ -42,6 +42,11 @@ func _gui_input(e: InputEvent) -> void:
 
 func _draw() -> void:
 	var center := origin if move_id >= 0 else Vector2(95,size.y-83)
-	draw_circle(center,55,Color(0.045,0.14,0.15,0.4),true,-1,true)
-	draw_arc(center,55,0,TAU,64,Color(0.96,0.91,0.77,0.65),1.8,true)
-	draw_circle(knob if move_id >= 0 else center,21,Color(0.95,0.91,0.79,0.58),true,-1,true)
+	if move_id >= 0:
+		draw_circle(center,52,Color(0.04,0.05,0.05,0.22),true,-1,true)
+		draw_arc(center,52,0,TAU,60,Color(1.0,0.98,0.92,0.63),1.4,true)
+		draw_circle(knob,17,Color(0.97,0.97,0.93,0.67),true,-1,true)
+	else:
+		draw_arc(center,29,PI*0.12,PI*0.88,24,Color(1,1,1,0.43),1.6,true)
+		draw_arc(center,29,PI*1.12,PI*1.88,24,Color(1,1,1,0.43),1.6,true)
+		draw_circle(center,5,Color(1,1,1,0.47),true,-1,true)

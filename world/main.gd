@@ -32,9 +32,10 @@ func _ready() -> void:
 	player.footstep.connect(func(): sound.cue("step"))
 	flow.changed.connect(ui.refresh)
 	prefs.apply(get_viewport(),district.sun)
-	view.position = Vector3(-4.6,3.1,12.6)
-	view.look_at(Vector3(-4.2,1.9,-0.2))
-	view.fov = 61
+	view.position = Vector3(-11.3,2.47,16.32)
+	view.look_at(Vector3(0.95,3.20,-1.7))
+	view.fov = 59
+	district.time_of_day(540)
 	show_menu()
 
 func show_menu() -> void:
@@ -50,7 +51,7 @@ func request_new() -> void:
 	else: new_shift()
 
 func new_shift() -> void:
-	var fresh := Market.new()
+	var fresh := Market.opening_shift()
 	# Only an explicit new-shift action can replace an unreadable or future slot.
 	var replacement := Slot.new(slot.path)
 	replacement.recovery = true
@@ -86,8 +87,8 @@ func start(next: Market) -> void:
 	player.yaw = market.d.yaw
 	player.pivot.rotation.y = player.yaw
 	player.person.rotation.y = player.yaw + PI
-	player.person.carton.visible = market.d.quantity > 0
-	player.person.hands.carrying = player.person.carton.visible
+	player.carry_carton(market.d.quantity > 0)
+	player.set_view(prefs.values.first_person)
 	player.show()
 	player.camera.current = true
 	in_shift = true
@@ -108,8 +109,7 @@ func refresh_display() -> void:
 func market_changed() -> void:
 	dirty = true
 	district.refresh(market)
-	player.person.carton.visible = market.d.quantity > 0
-	player.person.hands.carrying = player.person.carton.visible
+	player.carry_carton(market.d.quantity > 0)
 	ui.refresh()
 
 func _physics_process(dt: float) -> void:
@@ -158,6 +158,10 @@ func interact() -> void:
 	if nearest == "computer":
 		market.mark("terminal")
 		ui.terminal()
+	elif nearest == "display" and market.d.quantity > 0:
+		var feedback := market.stock()
+		sound.cue("crate")
+		ui.toast(feedback)
 	elif nearest != "": ui.station(nearest)
 
 func save_shift(quiet := false) -> String:

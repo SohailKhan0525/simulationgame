@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 internal playtest — Waterfront
+
+- Rebuilt the market exterior, floor materials, sky, street trees, parked cars, shop fixtures and products. Added original package fronts and shelf-edge pricing.
+- Start at eye level, switch to third person in Settings, stock a held carton directly and review the basket in a compact checkout sheet.
+- Redesigned the title screen, HUD, supplier ordering and touch controls. Added close-up shop and street captures to visual QA.
+
 ## 0.2.0 internal playtest — Checkout lane
 
 - Added a $32 checkout lane at the shop computer, available after the first payment. Three shoppers can visit together, collect visible parcels and take turns at the till.

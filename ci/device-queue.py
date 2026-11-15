@@ -29,6 +29,8 @@ shift.update(cash=51, spend=20, revenue=8, receipt=1, xp=36, queue_lane=True,
              open=True, pos=[4.15, 0.08, -1.15], yaw=0.6,
              flags=dict.fromkeys(("visit", "terminal", "order", "collect", "stock", "open", "sale"), True),
              log=[{"n": 1, "id": "tea", "paid": 8}])
+for goods in shift["goods"].values():
+    goods.update(back=0, shelf=0, sold=0)
 shift["goods"]["tea"].update(back=0, shelf=4, sold=1, price=8)
 shell("run-as", package, "tee", slot, input=json.dumps(shift).encode(), stdout=subprocess.DEVNULL)
 launch()
@@ -51,3 +53,18 @@ assert (paid["goods"]["tea"]["shelf"], paid["goods"]["tea"]["sold"]) == (2, 3), 
 assert [row["n"] for row in paid["log"]] == [3, 2, 1], paid
 (out / "queue-paid-save.json").write_bytes(raw)
 print("Android till recorded two touch payments, $67 cash and two remaining tea units.")
+
+# Separate staged views of the installed APK using the same private QA slot.
+# The seed is confined to the emulator. Nothing is added to the shipping game.
+for name, pos, yaw in [
+        ("waterfront-street", [-0.4,0.08,13.35], 0.68),
+        ("pantry-display", [-4.42,0.08,-5.13], 0.0)]:
+    shell("am", "force-stop", package)
+    scene = json.loads(raw)
+    scene.update(pos=pos, yaw=yaw, open=False, clock=565.0)
+    for product in scene["goods"].values():
+        product["shelf"] = 5
+    shell("run-as", package, "tee", slot, input=json.dumps(scene).encode(), stdout=subprocess.DEVNULL)
+    launch()
+    screen("Continue", name+"-menu.png", True)
+    screen("Pause", name+".png")

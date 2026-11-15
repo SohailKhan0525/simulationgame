@@ -115,11 +115,11 @@ jobs:
           tag="internal-${GITHUB_SHA:0:12}"
           git_version=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" package.txt | head -1)
           cat > notes.md <<NOTES
-          Internal Android playtest of Harbor Market. Run the waterfront shop, take your first payment and buy the checkout lane at the desk for 32 dollars. Three shoppers can collect parcels and queue for the till.
+          Internal Android playtest of Harbor Market. Explore the rebuilt waterfront at eye level, stock printed packages and take payments at the new register. Buy the checkout lane at the desk for 32 dollars after the first sale. Three shoppers can collect parcels and queue for the till.
 
           Debug-signed internal package. Future test builds may use different signing keys. Stable releases use a separate package and save slot. Keep this build installed to retain this shift.
 
           Commit: $GITHUB_SHA
           CI: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           NOTES
-          gh release create "$tag" *.apk *.sha256 manifest.json device/first-shift.png device/menu.png device/queue-floor.png device/queue-first-basket.png --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Harbor Market $git_version · internal Android playtest" --notes-file notes.md
+          gh release create "$tag" *.apk *.sha256 manifest.json device/first-shift.png device/menu.png device/queue-floor.png device/queue-first-basket.png device/waterfront-street.png device/pantry-display.png --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Harbor Market $git_version · internal Android playtest" --notes-file notes.md
