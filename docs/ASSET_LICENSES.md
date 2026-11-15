@@ -1,0 +1,12 @@
+# Assets and credits
+
+| File or source | Origin and redistribution |
+|---|---|
+| `assets/people/shopkeeper.glb` | [Man by Quaternius](https://poly.pizza/m/HMnuH5geEG), Public Domain [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Original GLB with skin, materials and skeletal clips. |
+| `assets/people/neighbor.glb` | [Woman Casual by Quaternius](https://poly.pizza/m/jpKRgGDxhk), Public Domain CC0 1.0. Original GLB with skin, materials and skeletal clips. |
+| Harbor District | Original geometry, color palette, storefront lettering, products and props constructed by `world/district.gd`. |
+| Sound and branding | Original synthesized audio in `core/sound.gd`, original vector mark in `assets/ui/mark.svg`. |
+| Typeface | Godot's bundled fallback and the device's installed serif face. |
+| Engine | [Godot Engine and third-party license notices](https://godotengine.org/license/). Accessible through Credits. |
+
+Both character files were obtained from the creators' Poly Pizza listings. The scene scales them and plays their idle, walking and running clips. The project does not redistribute a commercial asset pack.
