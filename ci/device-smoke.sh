@@ -52,14 +52,28 @@ launch() {
   timeout 40 "$adb" shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$package"
 }
 launch
-python3 ci/device-screen.py "Start" build/device/menu.png tap
-python3 ci/device-screen.py "Pause" build/device/first-shift.png
+/usr/bin/python3 ci/device-screen.py "Start" build/device/menu.png tap
+/usr/bin/python3 ci/device-screen.py "Pause" build/device/first-shift.png
+# A single held left-thumb gesture walks straight toward the market.
+"$adb" shell input swipe 150 605 150 365 4300
 "$adb" shell input keyevent KEYCODE_HOME
 sleep 2
+if [[ "$package" == *.internal ]]; then
+  slot=$("$adb" shell run-as "$package" find files -name harbor.json | tr -d '\r' | head -1)
+  test -n "$slot"
+  "$adb" exec-out run-as "$package" cat "$slot" > build/device/background-save.json
+  /usr/bin/python3 - <<'PYTEST'
+import json
+from pathlib import Path
+shift = json.loads(Path("build/device/background-save.json").read_bytes())
+assert shift["pos"][2] < 4.0, f"Touch gesture failed to advance from spawn: {shift['pos']}"
+print("Android background save captured movement", shift["pos"])
+PYTEST
+fi
 "$adb" shell am force-stop "$package"
 launch
-python3 ci/device-screen.py "Continue" build/device/relaunch.png tap
-python3 ci/device-screen.py "Pause" build/device/continued-shift.png
+/usr/bin/python3 ci/device-screen.py "Continue" build/device/relaunch.png tap
+/usr/bin/python3 ci/device-screen.py "Pause" build/device/continued-shift.png
 "$adb" shell pidof "$package"
 kill "$log_pid" 2>/dev/null || true
 if grep -E 'SCRIPT ERROR:|FATAL EXCEPTION:|Fatal signal [0-9]+.*qofeno|E godot *:.*ERROR:' "$out/logcat.txt"; then exit 1; fi

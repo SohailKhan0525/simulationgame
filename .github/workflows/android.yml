@@ -57,7 +57,7 @@ jobs:
       - name: Boot APK on Android 15 and restore a shift
         timeout-minutes: 12
         run: |
-          command -v tesseract || (sudo apt-get update -qq && sudo apt-get install -y tesseract-ocr)
+          if ! command -v tesseract || ! /usr/bin/python3 -c "import PIL"; then sudo apt-get update -qq && sudo apt-get install -y tesseract-ocr python3-pil; fi
           package=com.qofeno.simulation.internal
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then package=com.qofeno.simulation; fi
           if ! LIBGL_ALWAYS_SOFTWARE=1 QOFENO_EMULATOR_GPU=host xvfb-run -a bash ci/device-smoke.sh "$package"; then
