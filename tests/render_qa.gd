@@ -24,9 +24,10 @@ func run() -> void:
 	root.add_child(game)
 	await snap("menu")
 	var market := Market.new()
-	market.order("tea")
-	market.collect("tea")
-	market.stock()
+	for id in market.catalog:
+		market.order(id)
+		market.collect(id)
+		market.stock()
 	market.toggle_open()
 	game.start(market)
 	await snap("storefront")
@@ -35,6 +36,17 @@ func run() -> void:
 	game.player.pivot.rotation.y=0.39
 	game.update_location()
 	await snap("shop-floor")
+	game.player.position = Vector3(-4.5,0.06,-5.23)
+	game.player.yaw = 0
+	game.player.pivot.rotation.y = 0
+	game.player.arm.rotation.x = -0.20
+	game.update_location()
+	await snap("stocked-display")
+	game.player.position = Vector3(-0.6,0.06,13.3)
+	game.player.pivot.rotation.y = 0.65
+	game.player.arm.rotation.x = 0.02
+	game.update_location()
+	await snap("quayside-street")
 	game.player.position=Vector3(4.6,0.05,-7.2)
 	game.interact()
 	game.ui.terminal("Orders")

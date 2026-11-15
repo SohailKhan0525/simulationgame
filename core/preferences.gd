@@ -1,7 +1,7 @@
 class_name Preferences
 extends RefCounted
 
-const DEFAULTS := {"quality":1, "fps":30, "volume":75, "ambience":40, "music":50, "effects":75, "ui":75, "sensitivity":65, "invert":false, "hints":true, "autosave":true}
+const DEFAULTS := {"quality":1, "fps":30, "first_person":true, "volume":75, "ambience":40, "music":50, "effects":75, "ui":75, "sensitivity":65, "invert":false, "hints":true, "autosave":true}
 var values := DEFAULTS.duplicate()
 var file: String
 

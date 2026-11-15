@@ -19,29 +19,39 @@ def region(frame, word):
         return int(width * 0.84), 2, width, round(height * 0.115)
     if word in {"full-line", "ready-line"}:
         return int(width * 0.79), int(height * 0.878), int(width * 0.981), int(height * 0.956)
-    # The large primary menu action has a copper fill. Locate the actual
-    # button so a Continue slot, safe-area margins or text scaling can move it.
-    x = int(width * (0.30 if word == "payment" else 0.06))
-    rows = []
-    for y in range(height // 5, height * 4 // 5):
-        red, green, blue = frame.getpixel((x, y))
-        if abs(red - 242) < 22 and abs(green - 187) < 22 and abs(blue - 120) < 22:
-            rows.append(y)
-    if not rows:
-        return None
-    start = rows[0]
-    end = start
-    for y in rows[1:]:
-        if y != end + 1:
-            if end - start > height * 0.035:
-                break
-            start = y
-        end = y
-    if end - start < height * 0.035:
-        return None
+    # Find the solid primary action within the menu or right-hand till sheet.
+    # Use the actual button bounds so shorter labels and phone insets can vary.
     if word == "payment":
-        return int(width * 0.22), start + 3, int(width * 0.78), end - 2
-    return int(width * 0.05), start + 2, int(width * 0.34), end - 1
+        left, right, top, bottom = 0.60, 0.99, 0.22, 0.94
+    else:
+        left, right, top, bottom = 0.02, 0.43, 0.28, 0.94
+    x0, x1 = int(width*left), int(width*right)
+    best = None
+    for y in range(int(height*top), int(height*bottom), 3):
+        start = None
+        for x in range(x0, x1, 3):
+            r,g,b = frame.getpixel((x,y))
+            copper = abs(r-240)<20 and abs(g-190)<20 and abs(b-113)<20
+            if copper and start is None:
+                start = x
+            if start is not None and (not copper or x+3 >= x1):
+                length = x-start
+                if length > width*0.075 and (best is None or length > best[0]):
+                    best = length,start,x,y
+                start = None
+    if best is None:
+        return None
+    _, start, end, sample = best
+    probe = start+min(9,(end-start)//8)
+    def matches(row):
+        r,g,b = frame.getpixel((probe,row))
+        return abs(r-240)<20 and abs(g-190)<20 and abs(b-113)<20
+    y0=y1=sample
+    while y0>0 and matches(y0-1): y0-=1
+    while y1<height-1 and matches(y1+1): y1+=1
+    if y1-y0 < height*0.035:
+        return None
+    return start+2,y0+2,end-2,y1-1
 
 
 def locate(frame, word):

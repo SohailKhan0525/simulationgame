@@ -1,5 +1,5 @@
 {
-  "checkpoint": "0.2.0-internal",
+  "checkpoint": "0.3.0-internal",
   "engine": "4.6.3-stable",
   "entry_scene": "res://world/main.tscn",
   "validation": "bash ci/validate.sh",
@@ -21,7 +21,12 @@
     "three_customer_fifo",
     "per_visit_stock_reservations",
     "queue_lane_upgrade",
-    "schema_3_migration"
+    "schema_3_migration",
+    "eye_level_camera",
+    "scanned_street_materials",
+    "printed_packages",
+    "compact_checkout",
+    "direct_shelf_stocking"
   ],
   "verified_build": {
     "source_commit": "bd1646b866e12ca52b700a895a78d5f8b5253811",

@@ -1,10 +1,12 @@
 class_name HarborUI
 extends CanvasLayer
 
-const PAPER := Color("f8edd6")
-const MUTED := Color("bbccba")
-const DARK := Color("123537")
-const ACCENT := Color("f2bb78")
+const PAPER := Color("f7f3e8")
+const MUTED := Color("b9c2c4")
+const DARK := Color("172124")
+const ACCENT := Color("f0be71")
+const BODY_FONT := preload("res://assets/ui/type/Barlow-Regular.ttf")
+const TITLE_FONT := preload("res://assets/ui/type/BarlowCondensed-SemiBold.ttf")
 var safe := Control.new()
 var stage := Control.new()
 var shade: ColorRect
@@ -17,10 +19,11 @@ var message: Label
 var notice_time := 0.0
 var screen := ""
 var app: Node
-var display_font := SystemFont.new()
 
 func _ready() -> void:
-	display_font.font_names = PackedStringArray(["Georgia","Noto Serif","DejaVu Serif","serif"])
+	var theme := Theme.new()
+	theme.default_font = BODY_FONT
+	safe.theme = theme
 	add_child(safe)
 	safe.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	safe.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -42,7 +45,7 @@ func insets() -> void:
 	safe.offset_right = -(win.x-area.end.x)*ratio.x
 	safe.offset_bottom = -(win.y-area.end.y)*ratio.y
 
-func style(bg: Color, pad := 14, radius := 6) -> StyleBoxFlat:
+func style(bg: Color, pad := 14, radius := 2) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg
 	s.set_corner_radius_all(radius)
@@ -55,7 +58,7 @@ func text(parent: Control, content: String, font_size := 18, color := PAPER, dis
 	l.text = content
 	l.add_theme_font_size_override("font_size",font_size)
 	l.add_theme_color_override("font_color",color)
-	if display: l.add_theme_font_override("font",display_font)
+	if display: l.add_theme_font_override("font",TITLE_FONT)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(l)
@@ -64,14 +67,14 @@ func text(parent: Control, content: String, font_size := 18, color := PAPER, dis
 func button(parent: Control, caption: String, action: Callable, primary := false) -> Button:
 	var b := Button.new()
 	b.text = caption
-	b.custom_minimum_size = Vector2(0,43)
+	b.custom_minimum_size = Vector2(0,46)
 	b.add_theme_font_size_override("font_size",17)
 	b.add_theme_color_override("font_color",DARK if primary else PAPER)
 	b.add_theme_color_override("font_hover_color",DARK if primary else PAPER)
 	b.add_theme_color_override("font_pressed_color",DARK if primary else PAPER)
-	b.add_theme_stylebox_override("normal",style(ACCENT if primary else Color("295153")))
-	b.add_theme_stylebox_override("hover",style(Color("f5c789") if primary else Color("386360")))
-	b.add_theme_stylebox_override("pressed",style(Color("dfa765") if primary else Color("3c6862")))
+	b.add_theme_stylebox_override("normal",style(ACCENT if primary else Color("303b3ef2")))
+	b.add_theme_stylebox_override("hover",style(Color("f5c789") if primary else Color("465052")))
+	b.add_theme_stylebox_override("pressed",style(Color("dfa765") if primary else Color("505953")))
 	b.pressed.connect(func(): app.sound.cue("tap"); action.call())
 	parent.add_child(b)
 	return b
@@ -120,26 +123,47 @@ func anchor(n: Control, left: float, top: float, right: float, bottom: float, of
 	n.offset_right = offsets.end.x
 	n.offset_bottom = offsets.end.y
 
+func scrim(parent: Control, from: Vector2, to: Vector2, colors: PackedColorArray) -> void:
+	var fade := GradientTexture2D.new()
+	fade.gradient = Gradient.new()
+	fade.gradient.colors = colors
+	fade.fill_from = from
+	fade.fill_to = to
+	fade.width = 128
+	fade.height = 8
+	var cover := TextureRect.new()
+	cover.texture = fade
+	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(cover)
+	cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+func quiet_button(parent: Control, caption: String, action: Callable) -> Button:
+	var b := button(parent,caption,action)
+	b.add_theme_stylebox_override("normal",style(Color("121a1cbb"),11,2))
+	return b
+
 func menu() -> void:
 	clear("menu")
-	var p := panel(stage,Color("143c3df7"),25)
-	anchor(p,0,0,0,1,Rect2(0,0,365,0))
-	var sc := ScrollContainer.new()
-	p.add_child(sc)
-	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var v := column(sc)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	text(v,"Q  /  HARBOR DISTRICT",15,ACCENT)
-	text(v,"Qofeno\nSimulation",46,PAPER,true)
-	text(v,"Run a neighborhood market on the waterfront.",19,MUTED)
-	if app.slot.exists(): button(v,"Continue shift",app.resume_shift,true)
-	button(v,"Start new shift",app.request_new,not app.slot.exists())
-	var r := row(v)
-	button(r,"Settings",settings)
-	button(r,"Updates",updates)
-	button(v,"Credits",credits)
-	text(v,"Harbor Market   •   "+app.version,14,MUTED)
+	scrim(stage,Vector2(0.02,0.92),Vector2(0.82,0.25),PackedColorArray([Color("10191df4"),Color("142126a5"),Color("16222600")]))
+	var menu_stack := column(stage)
+	anchor(menu_stack,0,1,0,1,Rect2(36,-316,395,292))
+	menu_stack.add_theme_constant_override("separation",4)
+	var title := text(menu_stack,"QOFENO",77,PAPER,true)
+	title.add_theme_constant_override("line_spacing",-8)
+	text(menu_stack,"SIMULATION",31,PAPER,true)
+	text(menu_stack,"Harbor Market  /  Waterfront district",18,ACCENT)
+	var actions := row(menu_stack)
+	actions.add_theme_constant_override("separation",6)
+	if app.slot.exists(): button(actions,"Continue shift",app.resume_shift,true)
+	button(actions,"Start new shift",app.request_new,not app.slot.exists())
+	var links := row(menu_stack)
+	links.add_theme_constant_override("separation",3)
+	quiet_button(links,"Settings",settings)
+	quiet_button(links,"Updates",updates)
+	quiet_button(links,"Credits",credits)
+	var version_label := text(stage,"QOFENO   /   "+app.version,14,PAPER,true)
+	anchor(version_label,1,1,1,1,Rect2(-171,-38,146,26))
+	version_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_notice()
 
 func hud() -> void:
@@ -149,23 +173,38 @@ func hud() -> void:
 	gestures.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	gestures.moved.connect(func(value: Vector2): app.player.stick = value)
 	gestures.looked.connect(func(value: Vector2): app.player.turn(value,app.prefs.values))
-	var p := panel(stage,Color("123537e9"),12)
-	anchor(p,0,0,0,0,Rect2(12,10,382,62))
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var v := column(p)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation",1)
-	hud_stats = text(v,"",17,ACCENT)
-	hud_task = text(v,"",15,PAPER)
+	# Restrict contrast backing to the corners, leaving the player's view clear.
+	var compass := Control.new()
+	stage.add_child(compass)
+	compass.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	anchor(compass,0,0,0,0,Rect2(0,0,400,84))
+	scrim(compass,Vector2(0.06,0.1),Vector2(0.9,0.88),PackedColorArray([Color("10191edb"),Color("14202783"),Color("14202700")]))
+	hud_stats = text(stage,"",23,PAPER,true)
+	anchor(hud_stats,0,0,0,0,Rect2(18,8,360,30))
+	hud_stats.add_theme_color_override("font_shadow_color",Color("162027"))
+	hud_stats.add_theme_constant_override("shadow_offset_y",1)
+	hud_task = text(stage,"",16,PAPER)
+	anchor(hud_task,0,0,0,0,Rect2(18,39,380,36))
+	hud_task.add_theme_color_override("font_outline_color",Color("182121d6"))
+	hud_task.add_theme_constant_override("outline_size",3)
 	var top := row(stage)
-	anchor(top,1,0,1,0,Rect2(-185,10,172,43))
-	button(top,"Map",map_view)
-	button(top,"Pause",pause_menu)
+	anchor(top,1,0,1,0,Rect2(-149,10,136,46))
+	quiet_button(top,"Map",map_view)
+	quiet_button(top,"Pause",pause_menu)
+	if app.prefs.values.first_person:
+		var dot := Panel.new()
+		stage.add_child(dot)
+		anchor(dot,0.5,0.5,0.5,0.5,Rect2(-2.3,-2.3,4.6,4.6))
+		var sight := style(Color("f4f0e0cf"),0,3)
+		sight.set_border_width_all(1)
+		sight.border_color = Color("243030a0")
+		dot.add_theme_stylebox_override("panel",sight)
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	interact = button(stage,"Interact",app.interact,true)
 	anchor(interact,1,1,1,1,Rect2(-215,-70,199,51))
-	var run := button(stage,"Walk / run",func(): app.player.running = not app.player.running; refresh())
+	var run := quiet_button(stage,"Run",func(): app.player.running = not app.player.running; refresh())
 	run.name = "Pace"
-	anchor(run,1,1,1,1,Rect2(-129,-123,113,44))
+	anchor(run,1,1,1,1,Rect2(-105,-122,89,46))
 	add_notice()
 	refresh()
 
@@ -196,29 +235,37 @@ func refresh() -> void:
 	if screen != "hud" or not is_instance_valid(hud_stats): return
 	var m: Market = app.market
 	var minutes := int(m.d.clock)
-	hud_stats.text = "$%d   •   Level %d   •   %02d:%02d   •   %s" % [m.d.cash,m.level(),minutes/60,minutes%60,"Open" if m.d.open else "Closed"]
+	hud_stats.text = "$%d     /     %02d:%02d    ·    LV %d" % [m.d.cash,minutes/60,minutes%60,m.level()]
 	hud_task.text = m.objective() if app.prefs.values.hints else "Harbor District"
 	if m.d.quantity: hud_task.text += "  •  Carrying %d" % m.d.quantity
 	interact.visible = app.nearest != ""
 	if interact.visible:
 		interact.text = District.NAMES[app.nearest]
+		if app.nearest == "display" and m.d.quantity > 0:
+			interact.text = "Stock %d × %s" % [m.d.quantity,m.catalog[m.d.carry].name]
+		elif app.nearest == "computer": interact.text = "Use market desk"
 		if app.nearest == "till" and app.flow.ready_visit() != 0:
 			interact.text = "Checkout  ·  %d" % app.flow.line.size()
-	(stage.get_node("Pace") as Button).text = "Running" if app.player.running else "Walking"
+	(stage.get_node("Pace") as Button).text = "Walk" if app.player.running else "Run"
 
 func sheet(id: String, eyebrow: String, title: String, back: Callable) -> void:
 	clear(id)
 	shade = ColorRect.new()
-	shade.color = Color("091e29b6")
+	shade.color = Color("10171980")
 	stage.add_child(shade)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var frame := panel(stage,DARK,21)
-	anchor(frame,0.12,0.045,0.88,0.955,Rect2())
+	var frame := panel(stage,Color("192326fa"),18)
+	if id in ["till","sign","receiving","display"]:
+		anchor(frame,1,0.08,1,0.92,Rect2(-365,0,348,0))
+	elif id == "pause":
+		anchor(frame,0,0.06,0,0.94,Rect2(20,0,340,0))
+	else:
+		anchor(frame,0.09,0.045,0.91,0.955,Rect2())
 	var stack := column(frame)
 	var bar := row(stack)
 	var section := text(bar,eyebrow,14,ACCENT)
 	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button(bar,"Back",back)
+	quiet_button(bar,"Back",back)
 	text(stack,title,30,PAPER,true)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -265,7 +312,7 @@ func settings() -> void:
 	var options := [["quality","Graphics",["Low","Standard","High"]],["fps","Frame limit",[30,60]],
 		["volume","Master volume",[0,25,50,75,100]],["ambience","Harbor ambience",[0,20,40,70,100]],
 		["music","Menu music",[0,25,50,75,100]],["effects","Shop effects",[0,25,50,75,100]],["ui","Interface volume",[0,25,50,75,100]],
-		["sensitivity","Look sensitivity",[20,45,65,85,100]],["invert","Invert vertical look",[false,true]],
+		["first_person","First-person camera",[true,false]],["sensitivity","Look sensitivity",[20,45,65,85,100]],["invert","Invert vertical look",[false,true]],
 		["hints","Objective hints",[false,true]],["autosave","Timed autosave",[false,true]]]
 	for opt in options:
 		var id: String = opt[0]
@@ -279,6 +326,7 @@ func settings() -> void:
 			else: p[id] = choices[(choices.find(p[id])+1)%choices.size()]
 			var err: Error = app.prefs.save()
 			app.prefs.apply(get_viewport(),app.district.sun)
+			app.player.set_view(p.first_person)
 			settings()
 			if err != OK: toast("Settings could not be saved."))
 
@@ -301,15 +349,29 @@ func update_result(details: String, link: String) -> void:
 func credits() -> void:
 	sheet("credits","QOFENO SIMULATION","Credits",back)
 	text(body,"Harbor District • Original streets, storefronts, products, interface and synthesized audio.")
-	text(body,"Man and Woman Casual by Quaternius, CC0. Built with Godot Engine (MIT).",17,MUTED)
+	text(body,"People by Quaternius. Sky, scanned surfaces, apple and crate from Poly Haven (CC0). Barlow and Barlow Condensed by Jeremy Tribby (SIL OFL). Built with Godot Engine (MIT).",17,MUTED)
 	button(body,"Engine and third-party licenses",func(): OS.shell_open("https://godotengine.org/license/"))
+
+func product_photo(parent: Control, id: String, box: Vector2) -> void:
+	var picture := TextureRect.new()
+	picture.texture = District.PACK_PRINT[id]
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.custom_minimum_size = box
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(picture)
 
 func terminal(tab := "Overview") -> void:
 	sheet("terminal","HARBOR OS  /  SHOP COMPUTER","Market desk",hud)
 	var m: Market = app.directory.business("harbor_market")
 	var tabs := row(body)
 	for key in ["Overview","Orders","Prices","Reports","Upgrade"]:
-		button(tabs,key,terminal.bind(key),key==tab)
+		var tab_button := quiet_button(tabs,key,terminal.bind(key))
+		if key == tab:
+			var selected := style(Color("3c4949"),10)
+			selected.border_width_bottom = 3
+			selected.border_color = ACCENT
+			tab_button.add_theme_stylebox_override("normal",selected)
 	match tab:
 		"Overview":
 			text(body,"Cash  $%d     •     XP  %d     •     Level  %d" % [m.d.cash,m.d.xp,m.level()],22)
@@ -322,7 +384,18 @@ func terminal(tab := "Overview") -> void:
 			text(body,"Supplier delivers to receiving immediately. Cash available $%d." % m.d.cash,17,MUTED)
 			for id in m.catalog:
 				var item: Dictionary = m.catalog[id]
-				button(body,"Order %d × %s     $%d" % [item.pack,item.name,item.cost*item.pack],transaction.bind(m.order.bind(id),tab))
+				var product := row(body)
+				product_photo(product,id,Vector2(40,51))
+				var details := column(product)
+				details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				details.add_theme_constant_override("separation",0)
+				text(details,item.name,20,PAPER,true)
+				text(details,"%s   /   $%d per unit" % [item.category,item.cost],15,MUTED)
+				var cost := int(item.cost*item.pack)
+				var buy := button(product,"Order %d   ·   $%d" % [item.pack,cost],transaction.bind(m.order.bind(id),tab))
+				if m.d.cash < cost:
+					buy.text = "Need $%d" % cost
+					buy.disabled = true
 		"Prices":
 			text(body,"Shoppers have different budgets. A high price can send them home empty-handed.",16,MUTED)
 			for id in m.catalog:
@@ -373,7 +446,12 @@ func station(id: String) -> void:
 			var visit: int = app.flow.ready_visit()
 			if visit:
 				var item: Dictionary = m.reservations[visit]
-				text(body,"%s    × 1" % m.catalog[item.id].name)
+				var basket_row := row(body)
+				product_photo(basket_row,item.id,Vector2(65,81))
+				var receipt := column(basket_row)
+				text(receipt,m.catalog[item.id].name,24,PAPER,true)
+				text(receipt,"1 item    /    $%d each" % item.price,16,MUTED)
+				text(body,"Total    $%d.00" % item.price,31,PAPER,true)
 				if app.flow.line.size() > 1:
 					text(body,"%d more in line" % (app.flow.line.size()-1),17,MUTED)
 				button(body,"Take payment    $%d" % item.price,world_action.bind(app.flow.serve.bind(visit)),true)

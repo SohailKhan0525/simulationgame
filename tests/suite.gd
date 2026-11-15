@@ -179,6 +179,10 @@ func integration() -> void:
 	expect(click_caption(game.ui.stage,"Start new",true) and game.ui.screen=="hud","new shift through menu")
 	await physics_frame
 	expect(game.directory.business("harbor_market")==game.market,"retail operator registered")
+	expect(game.player.first_person and not game.player.person.visible and game.player.arm.spring_length == 0,"eye-level view on first launch")
+	game.player.set_view(false)
+	expect(game.player.person.visible and game.player.arm.spring_length > 3,"third-person camera and character restored")
+	game.player.set_view(true)
 	game.player.stick = Vector2.UP
 	for i in 195:
 		game.player._physics_process(1.0/60)
@@ -194,7 +198,7 @@ func integration() -> void:
 				expect(click_caption(game.ui.stage,"Orders") and click_caption(game.ui.stage,"Order 5"),"shop computer order")
 				game.ui.hud()
 			"receiving": expect(click_caption(game.ui.stage,"Collect Quayside"),"pickup from receiving")
-			"display": expect(click_caption(game.ui.stage,"Stock carried"),"display action")
+			"display": expect(game.ui.screen=="hud" and game.market.d.quantity == 0,"stock carton directly on shop floor")
 			"sign": expect(click_caption(game.ui.stage,"Open shop"),"open sign action")
 	expect(game.market.d.open and game.market.d.goods.tea.shelf==5,"live stocked shop")
 	var path_ok := true

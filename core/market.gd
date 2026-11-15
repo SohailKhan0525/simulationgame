@@ -17,8 +17,8 @@ var reservations: Dictionary[int, Dictionary] = {}
 
 func _init() -> void:
 	d = {"schema": SCHEMA, "cash": 95, "xp": 0, "open": false, "expanded": false, "queue_lane": false,
-		"revenue": 0, "spend": 0, "receipt": 0, "clock": 510.0, "pos": [0.0, 0.1, 5.0],
-		"yaw": 0.0, "flags": {}, "log": [], "carry": "", "quantity": 0, "goods": {}}
+		"revenue": 0, "spend": 0, "receipt": 0, "clock": 510.0, "pos": [-1.5, 0.1, 5.45],
+		"yaw": -0.265, "flags": {}, "log": [], "carry": "", "quantity": 0, "goods": {}}
 	for id in catalog:
 		d.goods[id] = {"back": 0, "shelf": 0, "sold": 0, "price": int(catalog[id].price)}
 

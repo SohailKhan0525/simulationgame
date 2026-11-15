@@ -1,6 +1,10 @@
 class_name Masonry
 extends Node3D
 ## Small reusable construction kit. Static details share one draw batch per shape.
+const SURFACES := {
+	"road": ["asphalt_04",0.28], "brick": ["red_brick_03",0.83],
+	"paving": ["concrete_pavement",0.55], "tile": ["floor_tiles_06",0.38]
+}
 var pieces := {}
 var colliders := StaticBody3D.new()
 
@@ -47,17 +51,39 @@ func bake() -> void:
 	for key in pieces:
 		var mesh: PrimitiveMesh
 		var surface := mat.duplicate() as StandardMaterial3D
-		if key in ["block","wood"]:
-			surface.albedo_texture = load("res://assets/environment/timber.png" if key=="wood" else "res://assets/environment/limewash.png")
+		if SURFACES.has(key):
+			var spec: Array = SURFACES[key]
+			var prefix := "res://assets/environment/harbor/" + str(spec[0])
+			surface.albedo_texture = load(prefix+".jpg")
+			surface.normal_enabled = true
+			surface.normal_texture = load(prefix+"_n.jpg")
+			surface.normal_scale = 0.55
+			surface.roughness = 0.42 if key == "tile" else 0.91
+			surface.uv1_triplanar = true
+			surface.uv1_world_triplanar = true
+			surface.uv1_scale = Vector3.ONE * float(spec[1])
+		elif key == "steel":
+			surface.metallic = 0.72
+			surface.roughness = 0.32
+		elif key == "window":
+			surface.metallic = 0.72
+			surface.roughness = 0.13
+		elif key == "luminous":
+			surface.emission_enabled = true
+			surface.emission = Color("fff0ce")
+			surface.emission_energy_multiplier = 0.65
+		elif key == "wood":
+			surface.albedo_texture = load("res://assets/environment/timber.png")
 			surface.uv1_triplanar = true
 			surface.uv1_world_triplanar = true
 			surface.uv1_scale = Vector3.ONE * (1.1 if key=="wood" else 0.9)
 		elif key == "glass":
 			surface.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			surface.albedo_color = Color(1,1,1,0.18)
-			surface.roughness = 0.24
+			surface.albedo_color = Color(0.72,0.86,0.91,0.17)
+			surface.metallic = 0.48
+			surface.roughness = 0.12
 		match key:
-			"block","wood","glass":
+			"block","wood","glass","brick","tile","road","paving","steel","window","luminous":
 				mesh = BoxMesh.new()
 			"crown":
 				var sphere := SphereMesh.new()

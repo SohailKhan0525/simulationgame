@@ -8,6 +8,8 @@ var arm := SpringArm3D.new()
 var camera := Camera3D.new()
 var stick := Vector2.ZERO
 var running := false
+var first_person := true
+var held_parcel := MeshInstance3D.new()
 var active := false
 var stride := 0.0
 var yaw := 0.0
@@ -38,9 +40,32 @@ func _ready() -> void:
 	arm.add_child(camera)
 	camera.near = 0.07
 	camera.fov = 66
+	var box := BoxMesh.new()
+	box.size = Vector3(0.40,0.28,0.27)
+	var kraft := StandardMaterial3D.new()
+	kraft.albedo_color = Color("aa8662")
+	box.material = kraft
+	held_parcel.mesh = box
+	camera.add_child(held_parcel)
+	held_parcel.position = Vector3(0.21,-0.28,-0.56)
+	held_parcel.rotation.y = -0.23
+	held_parcel.hide()
 	floor_snap_length = 0.2
 	pivot.rotation.y = yaw
 	arm.rotation.x = pitch
+
+func set_view(eyes: bool) -> void:
+	first_person = eyes
+	person.visible = not eyes
+	pivot.position.y = 1.63 if eyes else 1.52
+	arm.spring_length = 0.0 if eyes else 3.35
+	camera.fov = 72 if eyes else 66
+	held_parcel.visible = eyes and person.carton.visible
+
+func carry_carton(carrying: bool) -> void:
+	person.carton.visible = carrying
+	person.hands.carrying = carrying
+	held_parcel.visible = first_person and carrying
 
 func turn(amount: Vector2, options: Dictionary) -> void:
 	var speed := 0.0012 + float(options.sensitivity)*0.000035

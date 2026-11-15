@@ -8,7 +8,7 @@ The `Android` workflow uses Ubuntu 24.04, JDK 17 on the runner, the official God
 | Explicit push to a release/internal-* branch | After device checks, also publish a GitHub prerelease tagged with the source SHA prefix. |
 | Push a vMAJOR.MINOR.PATCH tag | Check the tag against project/export versions, export using the persistent key, validate package and signer, smoke-test, and publish a stable GitHub Release. |
 
-The internal application ID is `com.qofeno.simulation.internal`. Production uses `com.qofeno.simulation`. Both are landscape native Godot applications. The checkout-lane build uses version 0.2.0 and Android versionCode 2. The earlier 0.1.0 playtest used code 1. Update `project.godot` and `export_presets.cfg` together and increment versionCode for every future stable package.
+The internal application ID is `com.qofeno.simulation.internal`. Production uses `com.qofeno.simulation`. Both are landscape native Godot applications. The Waterfront build uses version 0.3.0 and Android versionCode 3. The checkout-lane build used 0.2.0 (2). The earlier 0.1.0 playtest used code 1. Update `project.godot` and `export_presets.cfg` together and increment versionCode for every future stable package.
 
 ## Signing setup
 
