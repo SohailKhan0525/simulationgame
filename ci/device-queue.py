@@ -76,7 +76,10 @@ screen("Scan", "queue-first-basket.png")
 # grocery uses the fixed Scan button. Both paths must reach the same receipt.
 with Image.open(out / "queue-first-basket.png") as counter:
     shell("input","tap",str(round(counter.width*0.333)),str(round(counter.height*0.49)))
-screen("Scan", "queue-partial-scan.png", True)
+# Android can acknowledge touch before the next rendered frame. Wait for the
+# second product name so this evidence captures the actual running subtotal.
+control("Quayside","queue-partial-scan.png",(.633,.251,.969,.359),False)
+screen("Scan", "queue-second-scan-control.png", True)
 control("Add","queue-cash-change.png",(.829,.645,.902,.728))
 screen("payment", "queue-cash-paid.png", True)
 screen("ready-line", "queue-advance.png", True)
