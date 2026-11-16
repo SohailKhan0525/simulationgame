@@ -23,3 +23,5 @@ The reference study used the published Steam galleries and public play guides. S
 - [Car For Sale Simulator, official store and gallery](https://store.steampowered.com/app/2248760/)
 
 The six fictional grocery prints, desk interface, changing sky, vehicle simulation and till interactions are original to Qofeno. The sky uses its licensed harbor panorama as the daytime layer. The estate has four independently rolling wheels, steerable front hubs and working headlamps.
+
+The [PC simulator study](PC_SIMULATOR_STUDY.md) expands the comparison to hotels, cafés and service stations, with source-code examples and an Android portability check.
