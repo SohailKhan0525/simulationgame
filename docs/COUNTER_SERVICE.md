@@ -17,6 +17,14 @@ UnityPy indexed the object tables in all four numbered scenes, serialized resour
 
 Public visual references were the [Supermarket Simulator Steam gallery](https://store.steampowered.com/app/2670630/) and the [Car For Sale Simulator Steam gallery](https://store.steampowered.com/app/2248760/). The reference binary, its art, and reconstructed listings were used outside the game project. Qofeno ships its own Godot code and the assets credited in this repository.
 
+## Where the original C# can be read
+
+The search included embedded content. All 5,023 serialized MonoScript records have six fields describing the name, class, namespace, assembly, property hash and execution order. None contains script text. All four TextAsset payloads were read and checked for C# source. None supplied a game source file. The 18 Windows EXE/DLL files were inspected for debug-directory records. The game assembly contains a CodeView record referring to `GameAssembly.pdb`. The ZIP contains no matching PDB or embedded portable PDB, source project, or C# file. The Microsoft-format GUID and age embedded in each binary were checked against [Unity's public symbol server](https://docs.unity.com/en-us/engine/6000.6/manual/platform-specific/windows/develop/debugging/instructions). The exact game PDB lookup returned HTTP 404. The same lookup succeeded for UnityPlayer: the 25,432,064-byte engine PDB matched its GUID and age and contained 119,232 public symbol records. Engine symbols describe the player runtime. Looking up Nokta Games' publisher site and public Steam materials also yielded no developer-published game-source repository.
+
+Actual C# is publicly readable for some dependencies. The uploaded build lists Unity's UI assembly. The separate [Unity uGUI source tree](https://github.com/Unity-Technologies/uGUI/tree/5e55142c416efc0440b44b1ea7e23811219ed57a/com.unity.ugui/Runtime/UGUI) was inventoried at a recorded revision: 86 runtime C# files. Three implementations were read closely. CanvasScaler handles physical-world canvases separately from screen resolution scaling. GraphicRaycaster uses the canvas camera when testing world-space graphics. Button checks that a control is active and interactable before sending its click event. This is upstream engine source. The exact uGUI source revision that Nokta shipped could not be established from these files.
+
+The game-specific evidence below comes from scene records and compiled game routines. Cpp2IL's C#-shaped files give declarations and recovered names. The 15 higher-level routine reconstructions are decompiler pseudocode. The developer's comments, original expressions and source-line layout require a developer-supplied project or an official source release.
+
 ## What the four scenes contain
 
 Unity stores a scene as an object graph. For each numbered scene the audit followed transform parents to roots, joined each canvas to its game object, and counted cameras, lights, colliders, LOD groups and reflection probes. Scene numbers below are the names found in the player build.
@@ -37,7 +45,7 @@ The storefront computer's desktop and Market app are world-space canvases. Price
 
 ## Decompilation and debugger checks
 
-The [assembly census](REFERENCE_COVERAGE.csv) covers the full metadata inventory, including engine, game and dependency assemblies. Cpp2IL decoded all available type and method records and produced native listings. For closer study, angr reconstructed higher-level control flow for seven specific routines from their original x86-64 bytes. These covered receiving a scan, belt advance, moving a shopper forward, daylight updates, opening a desktop app, fixed-step braking and activating street lighting. The recovered graphs contained 33, 60, 68, 57, 5, 63 and 15 basic blocks respectively. Engine calls and inferred variable names in these reconstructions retain uncertainty.
+The [assembly census](REFERENCE_COVERAGE.csv) covers the full metadata inventory, including engine, game and dependency assemblies. Cpp2IL decoded all available type and method records and produced native listings. For closer study, angr reconstructed higher-level control flow for 15 specific routines from their original x86-64 bytes. These covered receiving a scan, belt advance, moving a shopper forward, daylight updates, opening a desktop app, fixed-step braking and activating street lighting. A second pass covered shelf removal, carton contents, inventory costing, cart totals, cashier payment animation, traffic spawning, save-slot lookup and the computer camera layout. In total the 15 recovered graphs contained 711 basic blocks. Engine calls and inferred variable names in these reconstructions retain uncertainty. Matching call destinations to recovered method records showed that the scan path updates grid occupancy and can finish scanning or advance the belt. Belt advance updates collider state and requests local movement on the product transform. Fixed-step braking calls into wheel handbrake and brake-torque operations. Lighting updates set ambient color and material parameters. Shelf removal checks for an available product before removing it. The costing path reads the inventory count and previous average. The NPC spawn path consults spawn transforms and uses pooled objects for its local path. Qofeno implements those interactions with its own fixed-step parcels, vehicle mass factor and lamp materials.
 
 A separate check used pefile, Capstone and Unicorn to single-step isolated native routines from the game assembly using synthetic objects and a stack. The test ran the original machine instructions for those routines. No host game process was launched.
 
@@ -48,6 +56,12 @@ A separate check used pefile, Capstone and Unicorn to single-step isolated nativ
 | Vehicle gear-change state | Remaining timer −0.01, 0.00 and +0.01 | The state was inactive, inactive and active. |
 
 Unity compiles IL2CPP code through C++ into native machine code. Recovered instruction listings and pseudocode give different levels of detail from a developer's original source and comments. The publisher site and Steam listing identify the released game. [Unity's IL2CPP pipeline](https://docs.unity3d.com/cn/2018.3/Manual/IL2CPP-HowItWorks.html) · [Cpp2IL](https://github.com/SamboyCoding/Cpp2IL) · [Nokta Games](https://noktagames.net/).
+
+### Repeating the inspection
+
+The reference hash can be checked with `sha256sum`. Python's `ZipFile.testzip()` verifies all entry CRCs. UnityPy reads each numbered scene, asset container and bundle directly from its decompressed entry. Count unique path IDs within each serialized file; associate Transform and RectTransform with their game object and follow the parent to assign a root.
+
+For the native side, pair the uploaded build's own `GameAssembly.dll` with its own `il2cpp_data/Metadata/global-metadata.dat`. With Cpp2IL pre-release.21, supply both paths and Unity version `6000.3.6f1`. The `diffable-cs` format emits declarations; the `isil` format emits native and intermediate listings. The census counts method entries per assembly and subtracts entries that explicitly report no intermediate instructions. The 114 assembly rows sum to the totals above.
 
 ## Playing the new counter
 
@@ -60,3 +74,19 @@ At East Pier, stop in the loading bay and collect a prepaid pickup. One to four 
 `core/market.gd` owns allocations, locked prices and receipts. `world/counter_belt.gd` owns parcel motion and touch targeting. `world/customer.gd` owns the queue. `world/estate.gd` owns cargo presentation and driving. Save schema 5 migrates historical single-item receipts. An unpaid basket returns to shelf availability when reloading a shift.
 
 Run `bash ci/validate.sh` with Godot 4.6.3. The native suite includes atomic reservation failure, stale scan rejection, running totals, station re-entry, payment validation, legacy receipts, accounting conservation and a loaded depot-to-market drive across a save/reload. The Android workflow installs the APK on Android 15, exercises a two-item cash purchase and a card sale with actual touch input, reads the saved ledger, and captures both stages of the scanner.
+
+
+## Android playtest record
+
+[Internal 0.5.1 release](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-efcef962773f) · [Download the APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-efcef962773f/Qofeno-Simulation-0.5.1-internal.apk) · [Build and Android 15 test](https://github.com/SohailKhan0525/simulationgame/actions/runs/43881759648) · [Pull request](https://github.com/SohailKhan0525/simulationgame/pull/5)
+
+The APK is 97,911,468 bytes, package `com.qofeno.simulation.internal`, version code 6, minimum SDK 24 and target SDK 36. The downloaded APK passed SHA-256 and Android v2/v3 signature verification. Inspection of all 239 package entries found no reference-game payload. This internal build uses a different debug signer from the earlier release. Android will reject an in-place update across those keys. Removing a previous installation deletes its private shift.
+
+- APK SHA-256 `bc1d4476398edace3040418c543458d2d2bf1948a35b70cc8c817b58d937f50c`
+- Certificate SHA-256 `e533b9a7f9e02aba6d01c7fabeb6215b1b44b95982f0a601ce5a133f11921d0d`
+- Source commit `efcef962773f11ec59122e9c31da0320f5d07386`
+
+Godot passed 175 checks, 18,000 deterministic store operations and 900 save round-trips. The loaded estate completed a depot trip across save/reload and returned five units of tea. On the Android 15 emulator the first checkout sold soap for $6 and tea for $8, followed by a separate $8 card payment. The persisted ledger held both receipts and the staged shop had $73. The device test also verified shop ordering, driving, close of day and the next morning. Physical phone frame times and battery consumption remain unmeasured.
+
+
+The [published-APK replay](https://github.com/SohailKhan0525/simulationgame/actions/runs/43883316991) downloaded the release binary, verified its SHA-256 and installed it on a fresh Android 15 emulator. It tapped the 3D soap package and waited for the next product name before capturing the [verified intermediate frame](visuals/counter-after-first-scan.png). The frame shows Quayside tea waiting, one of two items scanned and a $6 subtotal. The original release test took its intermediate screenshot before the new frame was presented. The synchronized capture and persisted receipts verify both the intermediate and settled states.

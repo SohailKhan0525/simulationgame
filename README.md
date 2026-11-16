@@ -2,11 +2,13 @@
 
 Run Harbor Market on Quay Road. Prepare before 08:00 opening, order supplies at the shop computer, fill displays and scan customer purchases. Hire a cashier, license three more groceries and drive the estate along the waterfront. At 21:00 the doors close to new customers. Settle the last baskets, read the day’s statement and open again the next morning.
 
-**Android playtest 0.4.0 · Opening Hours** — [Download the 97.9 MB APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/Qofeno-Simulation-0.4.0-internal.apk) or [open the verified release and checksum](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-a5559630b84b). This internal APK starts a fresh local installation when its debug signature differs from an earlier playtest. Uninstalling the earlier build deletes its shift.
+**Android playtest 0.5.1 · Counter Service** · [Download the 97.9 MB APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-efcef962773f/Qofeno-Simulation-0.5.1-internal.apk) · [Release and checksum](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-efcef962773f)
 
-![Quay Road at sunset and at night on the Android emulator](docs/visuals/quay-evening.jpg)
+Scan mixed baskets, read the running total on the physical register, and look up each receipt at the shop computer. Its monitor shows the same desktop and clock as the touch view. Loaded cartons ride on the estate and affect how it accelerates and brakes.
 
-[Full sunset frame](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/quay-sunset.png) · [Full night frame](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/quay-night.png) · [Workstation](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/workstation.png) · [Mixed purchase](docs/visuals/wholesale-order.jpg) · [Driving](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/drive-estate.png) · [Daily statement](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-a5559630b84b/daily-report.png) · [Build and emulator evidence](https://github.com/SohailKhan0525/simulationgame/actions/runs/43747488356) · [Handoff](docs/OPENING_HOURS_HANDOFF.md)
+![A mixed basket on the native Android checkout belt](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-efcef962773f/queue-first-basket.png)
+
+[After the first scan](docs/visuals/counter-after-first-scan.png) · [Shop at night](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-efcef962773f/quay-night.png) · [Workstation](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-efcef962773f/workstation.png) · [Driving](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-efcef962773f/drive-estate.png) · [Android verification](https://github.com/SohailKhan0525/simulationgame/actions/runs/43881759648) · [Reference research and playtest notes](docs/COUNTER_SERVICE.md)
 
 ## Play on Android
 
@@ -23,11 +25,11 @@ Run Harbor Market on Quay Road. Prepare before 08:00 opening, order supplies at 
 | Enter the market | Walk through the open doorway under the striped awning. A contextual button appears within reach of equipment. |
 | Order | At the rear-right computer, open Market, add cartons, review the order and choose Place order. The first tea carton costs $20 for five units. |
 | Carry and stock | Collect the carton at the front-left pallet. Bring it to the rear-left display and tap Stock to place the contents directly. Product boxes appear on the shelf. |
-| Trade | Use the sign beside the door to open. Wait for the shopper to browse and reach the till, then scan the product. Authorize a card or count out the difference between cash tendered and the scanned total. |
+| Trade | Use the sign beside the door to open. Wait for the shopper to browse and reach the till, then tap each grocery on the moving belt or use Scan product. Authorize a card or count out the difference between cash tendered and the scanned total. |
 | Reinvest | At the computer, review receipts, set prices, and install the $45 display extension after the first sale. The $32 checkout lane admits up to three shoppers. Each chooses a product at its current price, then waits their turn. Every fifth sale awards a $5 trading bonus. |
 | Hire and license | In Management, hire a cashier for $12 for the current day after your first sale. At level 2, the $36 dry goods licence adds oats, pasta, rice and their display. |
 | Drive | Walk up to the blue estate outside the market. Tap Drive estate. Steer with the left controls, use Drive or Brake / R with the right thumb, then stop and tap Get out. |
-| Collect by car | During order review, choose Collect by car for up to four cartons. Stop in the marked bay at East Pier Wholesale, load the estate, then unload at Harbor Market for a $4 freight credit. |
+| Collect by car | During order review, choose Collect by car for up to four cartons. Stop in the marked bay at East Pier Wholesale, load the roof rack, then unload at Harbor Market for a $4 freight credit. |
 | Close | Use the door sign to switch the lights or close early. At 21:00, finish serving and return to the sign. Review and finish day shows the totals. Start the next day to return to 08:00. |
 | Save and explore | Pause → Save now. Map shows your position and destination. Earnings and stock mutations save after each completed action. |
 
