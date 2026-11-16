@@ -61,7 +61,7 @@ jobs:
           package=com.qofeno.simulation.internal
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then package=com.qofeno.simulation; fi
           if ! LIBGL_ALWAYS_SOFTWARE=1 QOFENO_EMULATOR_GPU=host xvfb-run -a bash ci/device-smoke.sh "$package"; then
-            if ! grep -Eq 'Fragment shader active uniforms exceed|Invalid GPU mode|Failed to initialize EGL|Failed to bind to texture|eglInitialize failed|Could not initialize emulated framebuffer' "$RUNNER_TEMP"/qofeno-device/*.txt "$RUNNER_TEMP"/qofeno-device/*.log; then exit 1; fi
+            if ! grep -Eq 'Fragment shader active uniforms exceed|Invalid GPU mode|Failed to initialize EGL|glestranslator/.*error null ctx|Failed to bind to texture|eglInitialize failed|Could not initialize emulated framebuffer' "$RUNNER_TEMP"/qofeno-device/*.txt "$RUNNER_TEMP"/qofeno-device/*.log; then exit 1; fi
             mv "$RUNNER_TEMP/qofeno-device" "$RUNNER_TEMP/qofeno-device-first"
             QOFENO_EMULATOR_GPU=lavapipe bash ci/device-smoke.sh "$package"
           fi
@@ -115,11 +115,11 @@ jobs:
           tag="internal-${GITHUB_SHA:0:12}"
           git_version=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" package.txt | head -1)
           cat > notes.md <<NOTES
-          Work a complete trading day at Harbor Market. Order mixed cartons on the store computer, scan goods, handle cash or card, hire a cashier and unlock dry groceries. Street traffic runs along the quay. Drive the estate with touch steering and pedals. Collect a supplier order at East Pier and unload it at the shop for a freight credit. At 21:00, finish the remaining baskets and review the day at the door sign.
+          Scan each grocery on the new checkout belt and review the itemized receipt at the desk. Supplier cartons ride on the estate roof and affect acceleration and braking. Work a complete trading day at Harbor Market. Order mixed cartons on the store computer, scan goods, handle cash or card, hire a cashier and unlock dry groceries. Street traffic runs along the quay. Drive the estate with touch steering and pedals. Collect a supplier order at East Pier and unload it at the shop for a freight credit. At 21:00, finish the remaining baskets and review the day at the door sign.
 
           Debug-signed internal package. Future test builds may use different signing keys. Stable releases use a separate package and save slot. Keep this build installed to retain this shift.
 
           Commit: $GITHUB_SHA
           CI: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           NOTES
-          gh release create "$tag" *.apk *.sha256 manifest.json device/first-shift.png device/menu.png device/queue-floor.png device/queue-first-basket.png device/waterfront-street.png device/pantry-display.png device/workstation.png device/supplier-cart.png device/drive-estate.png device/daily-report.png device/next-morning.png device/quay-sunset.png device/quay-night.png --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Harbor Market $git_version · internal Android playtest" --notes-file notes.md
+          gh release create "$tag" *.apk *.sha256 manifest.json device/first-shift.png device/menu.png device/queue-floor.png device/queue-first-basket.png device/queue-partial-scan.png device/waterfront-street.png device/pantry-display.png device/workstation.png device/supplier-cart.png device/drive-estate.png device/daily-report.png device/next-morning.png device/quay-sunset.png device/quay-night.png --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Harbor Market $git_version · internal Android playtest" --notes-file notes.md

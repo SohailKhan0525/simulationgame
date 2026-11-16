@@ -6,6 +6,7 @@ const SURFACES := {
 	"paving": ["concrete_pavement",0.55], "tile": ["floor_tiles_06",0.38]
 }
 var pieces := {}
+var light_materials: Dictionary[String, StandardMaterial3D] = {}
 var colliders := StaticBody3D.new()
 
 func _init() -> void:
@@ -68,10 +69,13 @@ func bake() -> void:
 		elif key == "window":
 			surface.metallic = 0.72
 			surface.roughness = 0.13
-		elif key == "luminous":
+		elif key in ["luminous","shop_glass","lamp_glass"]:
 			surface.emission_enabled = true
 			surface.emission = Color("fff0ce")
 			surface.emission_energy_multiplier = 0.65
+			if key != "luminous":
+				surface.emission = Color("ffe4be") if key == "lamp_glass" else Color("fff3dc")
+				light_materials[key] = surface
 		elif key == "wood":
 			surface.albedo_texture = load("res://assets/environment/timber.png")
 			surface.uv1_triplanar = true
@@ -83,7 +87,7 @@ func bake() -> void:
 			surface.metallic = 0.48
 			surface.roughness = 0.12
 		match key:
-			"block","wood","glass","brick","tile","road","paving","steel","window","luminous":
+			"block","wood","glass","brick","tile","road","paving","steel","window","luminous","shop_glass":
 				mesh = BoxMesh.new()
 			"crown":
 				var sphere := SphereMesh.new()

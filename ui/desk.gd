@@ -11,22 +11,43 @@ var ui: HarborUI
 var m: Market
 var current := "Desktop"
 var category := "All"
+var monitor_clock: Label
+var desktop_clock: Label
 
 func open(host: HarborUI, page: String) -> void:
 	ui = host
 	m = ui.app.market
 	current = page
 	ui.clear("terminal")
-	var background := WALL.new()
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ui.stage.add_child(background)
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	if page == "Desktop": desktop()
+	wallpaper(ui.stage)
+	if page == "Desktop": desktop_clock = desktop(ui.stage, m, true)
 	else: window()
 	ui.add_notice()
 
-func desktop() -> void:
-	var desk := ui.column(ui.stage)
+func attach_monitor(host: HarborUI, surface: Control, shop: Market) -> void:
+	ui = host
+	wallpaper(surface)
+	monitor_clock = desktop(surface, shop, false)
+
+func wallpaper(surface: Control) -> void:
+	var background := WALL.new()
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	surface.add_child(background)
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+func clock_text(shop: Market) -> String:
+	var minutes := int(shop.d.clock)
+	return "Harbor OS     /     Day %d      %02d:%02d" % [shop.d.day,minutes/60,minutes%60]
+
+func sync_clock(shop: Market, nearby: bool) -> void:
+	var value := clock_text(shop)
+	if is_instance_valid(desktop_clock) and desktop_clock.is_visible_in_tree(): desktop_clock.text = value
+	if nearby and monitor_clock.text != value:
+		monitor_clock.text = value
+		ui.app.district.monitor.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+func desktop(surface: Control, shop: Market, interactive: bool) -> Label:
+	var desk := ui.column(surface)
 	ui.anchor(desk,0,0,0,0,Rect2(27,24,280,300))
 	ui.text(desk,"Harbor workstation",25,Color.WHITE,true)
 	var grid := GridContainer.new()
@@ -48,12 +69,13 @@ func desktop() -> void:
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		shortcut.add_child(icon)
 		ui.anchor(icon,0,0,1,0,Rect2(0,6,0,38))
-	var panel := ui.panel(ui.stage,Color("203b40eb"),14)
+	var panel := ui.panel(surface,Color("203b40eb"),14)
 	ui.anchor(panel,0,1,1,1,Rect2(0,-63,0,63))
 	var bar := ui.row(panel)
-	var clock := ui.text(bar,"Harbor OS     /     Day %d      %02d:%02d" % [m.d.day,int(m.d.clock)/60,int(m.d.clock)%60],18,Color.WHITE,true)
+	var clock := ui.text(bar,clock_text(shop),18,Color.WHITE,true)
 	clock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ui.quiet_button(bar,"Leave desk",ui.hud)
+	if interactive: ui.quiet_button(bar,"Leave desk",ui.hud)
+	return clock
 
 func window() -> void:
 	var frame := ui.panel(ui.stage,PAPER,12)
@@ -121,7 +143,10 @@ func window() -> void:
 				for id in m.d.last_order: ui.text(body,"%d cartons   ·   %s" % [m.d.last_order[id],m.catalog[id].name],17,SUB)
 			ui.text(body,"Till receipts",21,INK,true)
 			if m.d.log.is_empty(): ui.text(body,"No payments recorded yet.",17,SUB)
-			for sale in m.d.log: ui.text(body,"%03d     %s     +$%d" % [sale.n,m.catalog[sale.id].name,sale.paid],17,SUB)
+			for sale in m.d.log:
+				ui.text(body,"Receipt %03d     ·     $%d" % [sale.n,sale.paid],19)
+				for entry in sale.lines:
+					ui.text(body,"1 × %s     $%d" % [m.catalog[entry.id].name,entry.price],16,SUB)
 
 func scroll(parent: Control) -> VBoxContainer:
 	var scrollbox := ScrollContainer.new()

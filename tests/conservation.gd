@@ -13,7 +13,7 @@ func _initialize():
 			2: m.put_back()
 			3: m.stock()
 			4: m.toggle_open()
-			5: m.reserve(visit,id)
+			5: m.reserve_basket(visit,m.shopping_list(visit,id))
 			6: m.checkout(visit)
 			7: m.set_price(id,1 if i%2==0 else -1)
 			8: m.expand()

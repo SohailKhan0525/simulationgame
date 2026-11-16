@@ -25,9 +25,10 @@ func run() -> void:
 	road.inputs = Vector2.ZERO
 	game.handle_freight()
 	print("Depot ",road.pose()," ",game.market.d.freight)
-	if game.market.d.freight != "estate": quit(1); return
+	if game.market.d.freight != "estate" or road.estate.cargo_count != 1: quit(1); return
 	game.save_shift()
 	game.resume_shift()
+	if not is_instance_valid(road.estate.roof_load) or road.estate.cargo_count != 1: quit(1); return
 	road.inputs = Vector2(0,-1)
 	for i in 1400:
 		road._physics_process(1.0/60.0)
@@ -39,7 +40,7 @@ func run() -> void:
 	road.inputs = Vector2.ZERO
 	game.handle_freight()
 	print("Market ",road.pose()," cash ",game.market.d.cash," tea ",game.market.d.goods.tea.back)
-	var ok: bool = game.market.d.shipment.is_empty() and game.market.d.cash==79 and game.market.d.goods.tea.back==5
+	var ok: bool = game.market.d.shipment.is_empty() and game.market.d.cash==79 and game.market.d.goods.tea.back==5 and road.estate.cargo_count == 0
 	for suffix in ["",".bak",".tmp"]:
 		var path: String = game.slot.path+suffix
 		if FileAccess.file_exists(path): DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

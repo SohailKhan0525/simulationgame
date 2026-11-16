@@ -9,6 +9,7 @@ var sound := HarborSound.new()
 var district := District.new()
 var player := HarborPlayer.new()
 var road := HarborRoad.new()
+var belt := CounterBelt.new()
 var flow := CustomerFlow.new()
 var ui := HarborUI.new()
 var view := Camera3D.new()
@@ -25,11 +26,13 @@ func _ready() -> void:
 	add_child(sound)
 	add_child(player)
 	add_child(road)
+	add_child(belt)
 	add_child(flow)
 	add_child(updater)
 	add_child(view)
 	ui.app = self
 	add_child(ui)
+	ui.desk.attach_monitor(ui,district.monitor_surface,market)
 	updater.result.connect(ui.update_result)
 	player.footstep.connect(func(): sound.cue("step"))
 	flow.changed.connect(ui.refresh)
@@ -81,6 +84,7 @@ func start(next: Market) -> void:
 	if market.changed.is_connected(market_changed): market.changed.disconnect(market_changed)
 	if market.display_changed.is_connected(refresh_display): market.display_changed.disconnect(refresh_display)
 	market = next
+	belt.present(0, market)
 	ui.scanned_visit = 0
 	market.display_changed.connect(refresh_display)
 	directory.bind_operator("harbor_market",market)
@@ -97,6 +101,7 @@ func start(next: Market) -> void:
 	player.set_view(prefs.values.first_person)
 	player.show()
 	road.park(market.d.van)
+	road.estate.load_shipments(market.d.shipment if market.d.freight == "estate" else {})
 	road.aboard = market.d.driving
 	player.visible = not road.aboard
 	player.collision_layer = 0 if road.aboard else 2
@@ -115,6 +120,11 @@ func start(next: Market) -> void:
 	update_location()
 
 func set_playing(value: bool) -> void:
+	if in_shift:
+		if ui.screen == "till": belt.camera.current = true
+		elif belt.camera.current:
+			if road.aboard: road.camera.current = true
+			else: player.camera.current = true
 	road.inputs = Vector2.ZERO
 	player.active = value and in_shift and not road.aboard
 	flow.active = in_shift and (value or ui.screen in ["terminal","receiving","display","till","sign"])
@@ -127,6 +137,7 @@ func refresh_display() -> void:
 	district.refresh(market)
 
 func market_changed() -> void:
+	road.estate.load_shipments(market.d.shipment if market.d.freight == "estate" else {})
 	dirty = true
 	district.refresh(market)
 	player.carry_carton(market.d.quantity > 0)
@@ -138,6 +149,7 @@ func _physics_process(dt: float) -> void:
 	if dirty:
 		dirty = false
 		save_shift(true)
+	belt.present(flow.ready_visit(), market)
 	if not flow.active: return
 	var was_open: bool = market.d.open
 	market.advance_clock(dt*2.5)
@@ -155,6 +167,7 @@ func _physics_process(dt: float) -> void:
 		road.set_lighting(district.night)
 
 func update_location() -> void:
+	ui.desk.sync_clock(market, not road.aboard and player.position.distance_squared_to(District.SPOTS["computer"]) < 64.0)
 	if road.aboard:
 		nearest = ""
 		ui.refresh()

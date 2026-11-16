@@ -110,6 +110,14 @@ func ready_visit() -> int:
 		return head.visit
 	return 0
 
+func take_payment(visit: int, change: int) -> String:
+	if visit == 0 or ready_visit() != visit: return "Wait for the shopper at the register."
+	var basket := market.reservations[visit]
+	if basket.scanned != basket.lines.size(): return "Scan every grocery first."
+	if visit % 2 == 0 and change != ceili(basket.total/5.0)*5 - int(basket.total):
+		return "Count the exact change."
+	return serve(visit)
+
 func serve(visit: int) -> String:
 	if visit < 1 or ready_visit() != visit: return "Wait for the next shopper at the till."
 	var shopper := line.pop_front() as Shopper
@@ -131,7 +139,13 @@ func tick(delta: float) -> void:
 			if head: cashier.hands.gesture("till",2.3)
 		elif head:
 			service_left -= delta
-			if service_left <= 0: serve(head)
+			if service_left <= 0:
+				var basket := market.reservations[head]
+				if basket.scanned < basket.lines.size():
+					market.scan(head, basket.scanned)
+					service_left = 0.65
+					changed.emit()
+				else: serve(head)
 	if market.d.open and shoppers.size() < market.customer_limit() and not market.available().is_empty():
 		next_arrival -= delta
 		if next_arrival <= 0:
@@ -146,6 +160,7 @@ func tick(delta: float) -> void:
 			Phase.IN_LINE:
 				var index := line.find(shopper)
 				if advance(shopper, line_position(index), delta):
+					if index == 0: shopper.person.carton.hide()
 					shopper.person.face(Vector3.FORWARD if index == 0 else Vector3.RIGHT, delta)
 			_:
 				var target := shopper.route[0]
@@ -159,15 +174,14 @@ func tick(delta: float) -> void:
 					if shopper.route.is_empty(): arrive(shopper)
 
 func select_item(shopper: Shopper) -> void:
-	var id := shopper.product
-	if not id.is_empty() and market.d.goods[id].price > int(market.catalog[id].price)+(shopper.visit%4): id = ""
-	if id.is_empty() or not market.reserve(shopper.visit, id):
+	var picks := market.shopping_list(shopper.visit, shopper.product)
+	if not market.reserve_basket(shopper.visit, picks):
 		depart(shopper)
 		return
 	line.append(shopper)
 	shopper.phase = Phase.TO_LINE
 	shopper.route.assign([Vector3(1.25,0.055,-6.27), LINE_START])
-	shopper.person.hold_product(id, Color(market.catalog[id].color))
+	shopper.person.hold_basket(market.reservations[shopper.visit].lines, market.catalog)
 	changed.emit()
 
 func advance(shopper: Shopper, destination: Vector3, delta: float) -> bool:
@@ -198,6 +212,7 @@ func arrive(shopper: Shopper) -> void:
 			shopper.person.hands.gesture("display", shopper.browse_left)
 		Phase.TO_LINE:
 			shopper.phase = Phase.IN_LINE
+			if line.front() == shopper: shopper.person.carton.hide()
 		Phase.LEAVING:
 			shoppers.erase(shopper)
 			shopper.person.queue_free()

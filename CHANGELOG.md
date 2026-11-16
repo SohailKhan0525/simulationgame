@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.1 · Shop-floor detail
+
+- The physical computer shows the same desktop shortcuts and trading clock as the touch interface. The register shows each scanned subtotal on both faces.
+- The visible shop fittings switch with the indoor lights. Street-lamp diffusers brighten at dusk and apartment windows light up in stages.
+- The Android checkout test taps the first physical grocery and uses the fixed button for the next one.
+
+## 0.5.0 · Counter Service
+
+- Shoppers gather up to three different groceries from the display they visit. Each unit keeps its shelf price until paid.
+- Scan individual packages on the counter or use the Scan button. Watch each package move onto the bagging deck, take cash or card, then read the itemized receipt in Ledger.
+- Supplier cartons are strapped onto the estate. Loaded acceleration and braking account for the cargo, including after a reload.
+- Existing shifts migrate their receipts to the itemized format. The Android touch test runs a mixed cash basket followed by a card sale.
+
 ## 0.4.0 · Opening Hours
 
 - Trade from 08:00 to 21:00 with a sunset, streetlamps, shop light switch and closing statement. Start the next day with your stock and cash.
