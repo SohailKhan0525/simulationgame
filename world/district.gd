@@ -17,6 +17,8 @@ var contact_material: StandardMaterial3D
 var sky_material := ShaderMaterial.new()
 var street_lights: Array[OmniLight3D] = []
 var lit_windows: Array[MeshInstance3D] = []
+var monitor := SubViewport.new()
+var monitor_surface := Control.new()
 var light_switch := true
 var night := 0.0
 var market_lights: Array[OmniLight3D] = []
@@ -189,26 +191,21 @@ func shop() -> void:
 	box(2.65,1.54,0.14,1.22,0.47,0.05,IRON)
 
 func monitor_face() -> void:
-	var display := SubViewport.new()
-	display.size = Vector2i(384,216)
-	display.disable_3d = true
-	display.render_target_update_mode = SubViewport.UPDATE_ONCE
-	add_child(display)
-	var wallpaper: Control = preload("res://ui/desk_wallpaper.gd").new()
-	display.add_child(wallpaper)
-	wallpaper.size = Vector2(display.size)
-	var shortcuts := Label.new()
-	shortcuts.text = "HARBOR OS\n\n Market\n Pricing\n Management\n Ledger"
-	shortcuts.position = Vector2(12,9)
-	shortcuts.add_theme_font_override("font",preload("res://assets/ui/type/BarlowCondensed-SemiBold.ttf"))
-	shortcuts.add_theme_font_size_override("font_size",16)
-	display.add_child(shortcuts)
+	monitor.size = Vector2i(480,270)
+	monitor.size_2d_override = Vector2i(960,540)
+	monitor.size_2d_override_stretch = true
+	monitor.disable_3d = true
+	monitor.gui_disable_input = true
+	monitor.render_target_update_mode = SubViewport.UPDATE_ONCE
+	add_child(monitor)
+	monitor.add_child(monitor_surface)
+	monitor_surface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var face := MeshInstance3D.new()
 	var quad := QuadMesh.new()
 	quad.size = Vector2(1.12,0.60)
 	var pixels := StandardMaterial3D.new()
 	pixels.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	pixels.albedo_texture = display.get_texture()
+	pixels.albedo_texture = monitor.get_texture()
 	quad.material = pixels
 	face.mesh = quad
 	face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -320,7 +317,8 @@ func fit_out() -> void:
 			pane.size = Vector2(1.55,1.76)
 			var glass := StandardMaterial3D.new()
 			glass.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			glass.albedo_color = Color("c6935d")
+			glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			glass.albedo_color = Color("dba76c")
 			pane.material = glass
 			window.mesh = pane
 			add_child(window)
@@ -359,7 +357,7 @@ func fit_out() -> void:
 	# Suspended linear fixtures and actual short-range shop lights.
 	for x in [-3.75,3.75]:
 		part("steel",Vector3(x,3.37,-4.9),Vector3(0.27,0.105,3.1),"bdc3bd")
-		part("luminous",Vector3(x,3.309,-4.9),Vector3(0.205,0.035,3.01),"fff2e2")
+		part("shop_glass",Vector3(x,3.309,-4.9),Vector3(0.205,0.035,3.01),"fff2e2")
 		for z in [-6.10,-3.73]: box(x,3.81,z,0.028,0.84,0.028,IRON)
 		var lamp := OmniLight3D.new()
 		add_child(lamp)
@@ -428,7 +426,8 @@ func street_lamp(x: float,z: float) -> void:
 	part("tube",Vector3(x,1.95,z),Vector3(0.16,3.9,0.16),IRON)
 	solid(Vector3(x,1.5,z),Vector3(0.22,3,0.22))
 	box(x,3.88,z-0.35,0.16,0.16,0.84,IRON)
-	part("tube",Vector3(x,3.73,z-0.72),Vector3(0.58,0.22,0.58),"f3da9e")
+	part("tube",Vector3(x,3.79,z-0.72),Vector3(0.59,0.12,0.59),IRON)
+	part("lamp_glass",Vector3(x,3.68,z-0.72),Vector3(0.49,0.10,0.49),"dad8c9")
 
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color("ffcd91")
@@ -506,6 +505,7 @@ func boat(x: float,z: float,angle: float) -> void:
 func refresh(m: Market) -> void:
 	light_switch = m.d.lights
 	for light in market_lights: light.visible = light_switch
+	light_materials["shop_glass"].emission_energy_multiplier = 0.9 if light_switch else 0.0
 	door_label.text = "OPEN" if m.d.open else "CLOSED"
 	var stamp := str([m.d.expanded,m.d.queue_lane,m.on_display("tea"),m.on_display("soap"),m.on_display("cocoa"),m.d.goods.tea.price,m.d.goods.soap.price,m.d.goods.cocoa.price])
 	stamp += str([m.d.dry_goods,m.d.goods.oats,m.d.goods.pasta,m.d.goods.rice,m.on_display("oats"),m.on_display("pasta"),m.on_display("rice")])
@@ -585,7 +585,15 @@ func time_of_day(minutes: float) -> void:
 	outside.fog_light_color = Color("ced6d3").lerp(Color("c99076"),dusk).lerp(Color("37445b"),night)
 	outside.fog_sky_affect = 0.12
 	for light in market_lights: light.light_energy = lerpf(1.78,0.98,daylight)
+	var street_power := smoothstep(0.32,0.82,dusk)
+	light_materials["lamp_glass"].emission_energy_multiplier = 1.6 * street_power
 	for light in street_lights:
-		light.visible = dusk > 0.32
-		light.light_energy = 2.4*smoothstep(0.32,0.82,dusk)
-	for window in lit_windows: window.visible = dusk > 0.55
+		light.visible = street_power > 0.0
+		light.light_energy = 2.4 * street_power
+	for i in lit_windows.size():
+		var window := lit_windows[i]
+		var intensity := smoothstep(0.49+i*0.12,0.70+i*0.12,dusk)
+		window.visible = intensity > 0.0
+		var pane := window.mesh as QuadMesh
+		var glass := pane.material as StandardMaterial3D
+		glass.albedo_color.a = intensity * 0.88

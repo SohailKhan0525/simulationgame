@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 · Shop-floor detail
+
+- The physical computer shows the same desktop shortcuts and trading clock as the touch interface. The register shows each scanned subtotal on both faces.
+- The visible shop fittings switch with the indoor lights. Street-lamp diffusers brighten at dusk and apartment windows light up in stages.
+- The Android checkout test taps the first physical grocery and uses the fixed button for the next one.
+
 ## 0.5.0 · Counter Service
 
 - Shoppers gather up to three different groceries from the display they visit. Each unit keeps its shelf price until paid.

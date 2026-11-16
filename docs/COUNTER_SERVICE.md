@@ -1,4 +1,4 @@
-# Counter Service · Qofeno Android 0.5.0
+# Counter Service · Qofeno Android 0.5.1
 
 ## Reference coverage
 
@@ -16,6 +16,38 @@ UnityPy indexed the object tables in all four numbered scenes, serialized resour
 | Workstation and touch UX | The computer opens and closes individual applications. The checkout screen and cash-change manager have separate responsibilities. | The Ledger app prints each sold product and its price. The till offers direct parcel taps and a fixed Scan button. Leaving and reopening the till preserves the current scan during the shift. |
 
 Public visual references were the [Supermarket Simulator Steam gallery](https://store.steampowered.com/app/2670630/) and the [Car For Sale Simulator Steam gallery](https://store.steampowered.com/app/2248760/). The reference binary, its art, and reconstructed listings were used outside the game project. Qofeno ships its own Godot code and the assets credited in this repository.
+
+## What the four scenes contain
+
+Unity stores a scene as an object graph. For each numbered scene the audit followed transform parents to roots, joined each canvas to its game object, and counted cameras, lights, colliders, LOD groups and reflection probes. Scene numbers below are the names found in the player build.
+
+| Serialized records | level0 | level1 | level2 | level3 |
+|---|---:|---:|---:|---:|
+| Game objects | 27 | 1,752 | 54,459 | 51,747 |
+| Screen-overlay canvases | 3 | 10 | 43 | 41 |
+| World-space canvases | 0 | 8 | 42 | 34 |
+| Mesh renderers | 0 | 0 | 31,148 | 30,775 |
+| LOD groups | 0 | 0 | 12,277 | 12,270 |
+| Lights | 0 | 0 | 373 | 373 |
+| Reflection probes | 0 | 0 | 22 | 22 |
+
+The entry scene contains initialization and warnings. The second scene devotes 1,158 transforms to the settings hierarchy alone. In level2, 41,711 transforms descend from the environment root, 5,501 from the gameplay root and 2,375 from the UI root. Navigation and maps have their own roots. Both large scenes contain terrain and 512-pixel reflection probes. In the stored quality presets the low and medium shadow distances are 20 units, while high is 40. These counts include inactive objects and describe the saved scenes. They cannot determine simultaneous draw calls or phone frame rate.
+
+The storefront computer's desktop and Market app are world-space canvases. Price-setting and over-change feedback are screen overlays. Qofeno now builds the physical monitor and touch desktop from the same layout and app icons. The monitor texture refreshes when the displayed minute changes near the desk. Both sides of the 3D register show the current scanned subtotal. Fixtures and the light they cast follow the same switch and dusk state.
+
+## Decompilation and debugger checks
+
+The [assembly census](REFERENCE_COVERAGE.csv) covers the full metadata inventory, including engine, game and dependency assemblies. Cpp2IL decoded all available type and method records and produced native listings. For closer study, angr reconstructed higher-level control flow for seven specific routines from their original x86-64 bytes. These covered receiving a scan, belt advance, moving a shopper forward, daylight updates, opening a desktop app, fixed-step braking and activating street lighting. The recovered graphs contained 33, 60, 68, 57, 5, 63 and 15 basic blocks respectively. Engine calls and inferred variable names in these reconstructions retain uncertainty.
+
+A separate check used pefile, Capstone and Unicorn to single-step isolated native routines from the game assembly using synthetic objects and a stack. The test ran the original machine instructions for those routines. No host game process was launched.
+
+| Native behavior checked | Test inputs | Observed result |
+|---|---|---|
+| Register total and change | Bill/change pairs 8/2, 14/1 and 25/0 | Writing one field preserved the other. Both getters returned the amounts separately. |
+| End of day | Normalized day progress 0.00, 0.99, 1.00 and 1.01 | The condition was false, false, true and true. |
+| Vehicle gear-change state | Remaining timer −0.01, 0.00 and +0.01 | The state was inactive, inactive and active. |
+
+Unity compiles IL2CPP code through C++ into native machine code. Recovered instruction listings and pseudocode give different levels of detail from a developer's original source and comments. The publisher site and Steam listing identify the released game. [Unity's IL2CPP pipeline](https://docs.unity3d.com/cn/2018.3/Manual/IL2CPP-HowItWorks.html) · [Cpp2IL](https://github.com/SamboyCoding/Cpp2IL) · [Nokta Games](https://noktagames.net/).
 
 ## Playing the new counter
 

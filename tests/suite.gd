@@ -357,6 +357,9 @@ func exercise_lane(game: Node) -> void:
 	var point: Vector2 = game.belt.camera.unproject_position(game.belt.parcels[0].global_position)
 	expect(game.belt.hits_next(point),"next grocery can be hit in the native camera")
 	game.ui.scan_product(first,0)
+	game.ui.desk.sync_clock(m,true)
+	expect(game.ui.desk.monitor_clock.text == game.ui.desk.clock_text(m),"desk monitor and touch desktop share the trading clock")
+	expect(game.belt.readout.text == "$%d.00" % m.reservations[first].subtotal,"physical customer display follows scanner")
 	game.ui.hud()
 	game.ui.station("till")
 	expect(m.reservations[first].scanned==1,"walking away and returning keeps scan progress")
@@ -421,6 +424,7 @@ func test_road_and_day(game: Node) -> void:
 	expect(m.d.clock == 1260 and not m.d.open and not m.can_finish(),"21:00 closes admissions while protecting a basket")
 	m.checkout(99)
 	m.toggle_lights()
+	expect(game.district.light_materials["shop_glass"].emission_energy_multiplier == 0.0,"fixture switches off with the point light")
 	var dawn := Market.new()
 	expect(dawn.restore(JSON.parse_string(JSON.stringify(m.d))) and not dawn.d.lights and dawn.d.clock==1260,"dark closed shift restores")
 	expect(m.next_day() and not m.next_day() and m.d.day==2 and m.d.clock==480 and m.d.morning[2]==6,"daily settlement is idempotent")
@@ -469,6 +473,7 @@ func test_road_and_day(game: Node) -> void:
 	m.d.clock=1259.0
 	m.advance_clock(2.0)
 	game.district.time_of_day(m.d.clock)
+	expect(game.district.light_materials["lamp_glass"].emission_energy_multiplier > 1.0,"street fixtures light up at night")
 	expect(game.district.night>0.99 and game.district.street_lights[0].visible,"street lighting follows closing time")
 	await process_frame
 

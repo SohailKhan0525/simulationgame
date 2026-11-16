@@ -32,6 +32,7 @@ func _ready() -> void:
 	add_child(view)
 	ui.app = self
 	add_child(ui)
+	ui.desk.attach_monitor(ui,district.monitor_surface,market)
 	updater.result.connect(ui.update_result)
 	player.footstep.connect(func(): sound.cue("step"))
 	flow.changed.connect(ui.refresh)
@@ -166,6 +167,7 @@ func _physics_process(dt: float) -> void:
 		road.set_lighting(district.night)
 
 func update_location() -> void:
+	ui.desk.sync_clock(market, not road.aboard and player.position.distance_squared_to(District.SPOTS["computer"]) < 64.0)
 	if road.aboard:
 		nearest = ""
 		ui.refresh()

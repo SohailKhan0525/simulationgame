@@ -71,7 +71,11 @@ shell("run-as", package, "tee", slot, input=json.dumps(shift).encode(), stdout=s
 launch()
 screen("Continue", "queue-continue.png", True)
 screen("full-line", "queue-floor.png", True)
-screen("Scan", "queue-first-basket.png", True)
+screen("Scan", "queue-first-basket.png")
+# Use a finger on the first grocery in the native register camera. The second
+# grocery uses the fixed Scan button. Both paths must reach the same receipt.
+with Image.open(out / "queue-first-basket.png") as counter:
+    shell("input","tap",str(round(counter.width*0.333)),str(round(counter.height*0.49)))
 screen("Scan", "queue-partial-scan.png", True)
 control("Add","queue-cash-change.png",(.829,.645,.902,.728))
 screen("payment", "queue-cash-paid.png", True)

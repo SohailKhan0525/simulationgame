@@ -475,10 +475,7 @@ func station(id: String) -> void:
 					text(body,"%d more in line" % (app.flow.line.size()-1),17,MUTED)
 				if cursor < count:
 					button(body,"Scan product",scan_product.bind(visit,cursor),true)
-					shade.gui_input.connect(func(event: InputEvent):
-						if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-							if app.belt.hits_next(shade.get_global_transform_with_canvas()*event.position):
-								scan_product(visit,cursor))
+					shade.gui_input.connect(touch_grocery.bind(visit,cursor))
 				elif visit % 2 == 1:
 					text(body,"Card presented · charge the scanned total.",17,MUTED)
 					button(body,"Take payment    $%d" % basket.total,world_action.bind(app.flow.take_payment.bind(visit,drawer)),true)
@@ -492,6 +489,19 @@ func station(id: String) -> void:
 					button(body,"Take payment    $%d" % basket.total,world_action.bind(app.flow.take_payment.bind(visit,drawer)),true).disabled = drawer != tender-int(basket.total)
 			elif app.flow.line.is_empty(): text(body,"A shopper will wait here after choosing a product.")
 			else: text(body,"The next shopper is approaching the belt.")
+
+func touch_grocery(event: InputEvent, visit: int, cursor: int) -> void:
+	var point: Vector2
+	if event is InputEventScreenTouch:
+		if not event.pressed: return
+		point = event.position
+	elif event is InputEventMouseButton:
+		if event.device == InputEvent.DEVICE_ID_EMULATION or event.button_index != MOUSE_BUTTON_LEFT or not event.pressed: return
+		point = event.position
+	else: return
+	if app.belt.hits_next(shade.get_global_transform_with_canvas()*point):
+		shade.accept_event()
+		scan_product(visit,cursor)
 
 func scan_product(visit: int, cursor: int) -> void:
 	if app.flow.ready_visit() != visit or not app.market.scan(visit,cursor): return

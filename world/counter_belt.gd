@@ -5,6 +5,8 @@ extends Node3D
 const DECK := 1.195
 const SCANNER := 4.57
 var camera := Camera3D.new()
+var readout := Label3D.new()
+var operator_readout := Label3D.new()
 var parcels: Array[GroceryPack] = []
 var fall_speed: Array[float] = []
 var visit := 0
@@ -17,6 +19,21 @@ func _ready() -> void:
 	camera.h_offset = 0.42
 	camera.fov = 47
 
+	# Both sides of the physical terminal show the same receipt as the touch screen.
+	for label in [readout,operator_readout]:
+		add_child(label)
+		label.font = preload("res://assets/ui/type/BarlowCondensed-SemiBold.ttf")
+		label.font_size = 54
+		label.pixel_size = 0.00132
+		label.outline_size = 0
+		label.double_sided = false
+		label.modulate = Color("152b29")
+		label.text = "$0.00"
+	readout.position = Vector3(5.68,1.48,-3.516)
+	operator_readout.position = Vector3(5.68,1.48,-3.643)
+	operator_readout.rotation.y = PI
+	operator_readout.modulate = Color("abdbca")
+
 func present(next: int, market: Market) -> void:
 	if next != visit:
 		for parcel in parcels:
@@ -26,6 +43,8 @@ func present(next: int, market: Market) -> void:
 		fall_speed.clear()
 		visit = next
 		scanned = 0
+		readout.text = "$0.00"
+		operator_readout.text = readout.text
 		if visit == 0: return
 		var basket := market.reservations[visit]
 		for i in basket.lines.size():
@@ -37,7 +56,12 @@ func present(next: int, market: Market) -> void:
 			pack.rotation.y = 0.055 if i%2 else -0.035
 			parcels.append(pack)
 			fall_speed.append(0.0)
-	if visit: scanned = market.reservations[visit].scanned
+	if visit:
+		var basket := market.reservations[visit]
+		if scanned != basket.scanned:
+			scanned = basket.scanned
+			readout.text = "$%d.00" % basket.subtotal
+			operator_readout.text = readout.text
 
 func _physics_process(delta: float) -> void:
 	for i in parcels.size():
