@@ -1,8 +1,6 @@
-.godot/
 build/
 *.keystore
 *.jks
 *.p12
-export_credentials.cfg
 *.log
 __pycache__/

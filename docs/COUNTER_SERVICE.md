@@ -1,4 +1,4 @@
-# Counter Service · Qofeno Android 0.5.1
+# Windows build study: stocking and checkout
 
 ## Reference coverage
 
@@ -8,14 +8,14 @@ Cpp2IL 2022.1.0-pre-release.21 read the game assembly and its matching metadata.
 
 UnityPy indexed the object tables in all four numbered scenes, serialized resource files and 23 bundles. Across 36 containers there are 789,813 object records. These are serialized totals, so a repeated object in two containers counts twice. The resource census includes 25,089 LOD groups, 33,650 box colliders, 755 rigid bodies, 76 wheel colliders and 803 lights. The physics manager specifies gravity Y −20 and six position-solver iterations. The time manager stores approximately 0.020 seconds per fixed step. Individual scripts can override global settings.
 
-| Area studied | Evidence in the Windows build | Decision in Qofeno |
+| Area studied | Evidence in the Windows build | Earlier prototype design |
 |---|---|---|
 | Checkout and customers | The belt places products into a grid and advances them after scanning. The customer has separate actions for holding a product, moving up to checkout, cash and card. The drawer handles money separately. | Shoppers gather up to three different groceries from one visited fixture. The same price-locked lines drive visible parcels, scanner, payment and receipt. |
 | Physics and vehicles | The vehicle controller has fixed-step engine, steering and brake work. Traffic has its own routing. The scene data contains separate wheel, body and environment colliders. | The estate keeps its existing bicycle steering. Roof cargo increases the effective mass used for acceleration and braking. Parcel motion uses fixed steps, a constrained belt and a damped landing. |
 | Graphics and lighting | Renderers, LOD groups and scene lights are separate objects. Day progression, lighting updates and street-light control appear separately in the listings. | The cashier camera shows actual stock in the existing daylight/night-lit shop. Batched rails, belt edging, basket slats and carton straps add depth at short viewing distance. |
 | Workstation and touch UX | The computer opens and closes individual applications. The checkout screen and cash-change manager have separate responsibilities. | The Ledger app prints each sold product and its price. The till offers direct parcel taps and a fixed Scan button. Leaving and reopening the till preserves the current scan during the shift. |
 
-Public visual references were the [Supermarket Simulator Steam gallery](https://store.steampowered.com/app/2670630/) and the [Car For Sale Simulator Steam gallery](https://store.steampowered.com/app/2248760/). The reference binary, its art, and reconstructed listings were used outside the game project. Qofeno ships its own Godot code and the assets credited in this repository.
+Public visual references were the [Supermarket Simulator Steam gallery](https://store.steampowered.com/app/2670630/) and the [Car For Sale Simulator Steam gallery](https://store.steampowered.com/app/2248760/). The reference binary, its art, and reconstructed listings were used outside the game project. Qofeno’s Android implementation is in the [Unity project](../UnityQofeno/README.md).
 
 ## Where the original C# can be read
 
@@ -79,31 +79,3 @@ Unity compiles IL2CPP code through C++ into native machine code. Recovered instr
 The reference hash can be checked with `sha256sum`. Python's `ZipFile.testzip()` verifies all entry CRCs. UnityPy reads each numbered scene, asset container and bundle directly from its decompressed entry. Count unique path IDs within each serialized file; associate Transform and RectTransform with their game object and follow the parent to assign a root.
 
 For the native side, pair the uploaded build's own `GameAssembly.dll` with its own `il2cpp_data/Metadata/global-metadata.dat`. With Cpp2IL pre-release.21, supply both paths and Unity version `6000.3.6f1`. The `diffable-cs` format emits declarations; the `isil` format emits native and intermediate listings. The census counts method entries per assembly and subtracts entries that explicitly report no intermediate instructions. The 114 assembly rows sum to the totals above.
-
-## Playing the new counter
-
-Stock two or three goods on the same fixture. Open the shop. The first visitor selects one item. Later visitors can choose two or three if those products are in stock and within their budgets. Open Checkout when the front visitor reaches the register. Tap the leading grocery or **Scan product**. The running total shows only scanned lines. Cash customers need exact change. The computer's Ledger retains the latest 15 itemized receipts. The hired cashier scans and settles the same baskets.
-
-At East Pier, stop in the loading bay and collect a prepaid pickup. One to four strapped cartons appear on the estate. The order survives a save while driving. Unload at Harbor Market to clear the rack and deliver the goods to receiving.
-
-## Implementation and verification
-
-`core/market.gd` owns allocations, locked prices and receipts. `world/counter_belt.gd` owns parcel motion and touch targeting. `world/customer.gd` owns the queue. `world/estate.gd` owns cargo presentation and driving. Save schema 5 migrates historical single-item receipts. An unpaid basket returns to shelf availability when reloading a shift.
-
-Run `bash ci/validate.sh` with Godot 4.6.3. The native suite includes atomic reservation failure, stale scan rejection, running totals, station re-entry, payment validation, legacy receipts, accounting conservation and a loaded depot-to-market drive across a save/reload. The Android workflow installs the APK on Android 15, exercises a two-item cash purchase and a card sale with actual touch input, reads the saved ledger, and captures both stages of the scanner.
-
-
-## Android playtest record
-
-[Internal 0.5.1 release](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-efcef962773f) · [Download the APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-efcef962773f/Qofeno-Simulation-0.5.1-internal.apk) · [Build and Android 15 test](https://github.com/SohailKhan0525/simulationgame/actions/runs/43881759648) · [Pull request](https://github.com/SohailKhan0525/simulationgame/pull/5)
-
-The APK is 97,911,468 bytes, package `com.qofeno.simulation.internal`, version code 6, minimum SDK 24 and target SDK 36. The downloaded APK passed SHA-256 and Android v2/v3 signature verification. Inspection of all 239 package entries found no reference-game payload. This internal build uses a different debug signer from the earlier release. Android will reject an in-place update across those keys. Removing a previous installation deletes its private shift.
-
-- APK SHA-256 `bc1d4476398edace3040418c543458d2d2bf1948a35b70cc8c817b58d937f50c`
-- Certificate SHA-256 `e533b9a7f9e02aba6d01c7fabeb6215b1b44b95982f0a601ce5a133f11921d0d`
-- Source commit `efcef962773f11ec59122e9c31da0320f5d07386`
-
-Godot passed 175 checks, 18,000 deterministic store operations and 900 save round-trips. The loaded estate completed a depot trip across save/reload and returned five units of tea. On the Android 15 emulator the first checkout sold soap for $6 and tea for $8, followed by a separate $8 card payment. The persisted ledger held both receipts and the staged shop had $73. The device test also verified shop ordering, driving, close of day and the next morning. Physical phone frame times and battery consumption remain unmeasured.
-
-
-The [published-APK replay](https://github.com/SohailKhan0525/simulationgame/actions/runs/43883316991) downloaded the release binary, verified its SHA-256 and installed it on a fresh Android 15 emulator. It tapped the 3D soap package and waited for the next product name before capturing the [verified intermediate frame](visuals/counter-after-first-scan.png). The frame shows Quayside tea waiting, one of two items scanned and a $6 subtotal. The original release test took its intermediate screenshot before the new frame was presented. The synchronized capture and persisted receipts verify both the intermediate and settled states.
