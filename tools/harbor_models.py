@@ -1,4 +1,4 @@
-"""Rebuild original estate car and street tree with Blender 4.3: blender -b -P ci/harbor_models.py."""
+"""Rebuild original estate car and street tree with Blender 4.3: blender -b -P tools/harbor_models.py."""
 import math
 import random
 from pathlib import Path

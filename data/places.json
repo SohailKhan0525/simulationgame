@@ -1,6 +1,0 @@
-[
-  {"id":"harbor_market","name":"Harbor Market","x":0,"z":-4,"playable":true,"type":"retail"},
-  {"id":"tide_hotel","name":"Tide Hotel","x":-16,"z":-5,"playable":false,"type":"hotel"},
-  {"id":"relay_computers","name":"Relay Computers","x":16,"z":-5,"playable":false,"type":"computer_shop"},
-  {"id":"pier_cafe","name":"Pier Café","x":27,"z":-5,"playable":false,"type":"restaurant"}
-]

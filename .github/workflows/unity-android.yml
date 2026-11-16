@@ -1,0 +1,127 @@
+name: Unity Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "UnityQofeno/Assets/**"
+      - "UnityQofeno/Packages/**"
+      - "UnityQofeno/ProjectSettings/**"
+      - ".github/workflows/unity-android.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the verified APK on the Releases page (main only)
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Check Unity activation settings
+        env:
+          HAS_ACCOUNT: ${{ secrets.UNITY_EMAIL != '' && secrets.UNITY_PASSWORD != '' }}
+          HAS_ENTITLEMENT: ${{ secrets.UNITY_LICENSE != '' || secrets.UNITY_SERIAL != '' }}
+          HAS_SERVER: ${{ secrets.UNITY_LICENSING_SERVER != '' }}
+        run: |
+          if [[ "$HAS_SERVER" != true && ( "$HAS_ACCOUNT" != true || "$HAS_ENTITLEMENT" != true ) ]]; then
+            echo "::error::Unity activation is missing. Configure Actions secrets under repository Settings."
+            echo "Set UNITY_EMAIL and UNITY_PASSWORD with UNITY_LICENSE (Personal ULF) or UNITY_SERIAL (Pro)."
+            echo "Alternatively, set a reachable UNITY_LICENSING_SERVER. See https://game.ci/docs/github/activation/"
+            exit 1
+          fi
+
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Make room for the editor and Android modules
+        run: |
+          # The editor container supplies its own JDK, SDK, NDK and IL2CPP.
+          # Keep the host build-tools for independent APK verification.
+          sudo rm -rf /usr/share/dotnet /usr/local/.ghcup /opt/ghc /usr/share/swift \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/powershell \
+            "$ANDROID_HOME/ndk" "$ANDROID_HOME/system-images" "$ANDROID_HOME/cmake" "$ANDROID_HOME/platforms"
+          df -h "$GITHUB_WORKSPACE"
+
+      - name: Build the ARM64 player
+        uses: game-ci/unity-builder@4423ee75828dff56037d1d1cfdac6b68e3a6ba00 # v4
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: UnityQofeno
+          unityVersion: 6000.3.6f1
+          # ubuntu-6000.3.6f1-android-3, linux/amd64
+          customImage: unityci/editor@sha256:7d3ddda30a629f667d66a8f98613f4b74cff46d94e5bc34ea489eb554711d14c
+          unityLicensingServer: ${{ secrets.UNITY_LICENSING_SERVER }}
+          targetPlatform: Android
+          buildMethod: Qofeno.Editor.AndroidBuild.BuildApk
+          buildsPath: UnityQofeno/Builds
+          buildName: Qofeno-Harbor-Market
+          versioning: None
+
+      - name: Verify the APK and record its checksum
+        working-directory: UnityQofeno/Builds/Android
+        run: |
+          apk=Qofeno-Harbor-Market.apk
+          test -s "$apk"
+          build_tools=$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner -printf '%h\n' | sort -V | tail -1)
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/qofeno-signature.txt"
+          grep -Eq '^Verified using v[23]([.][0-9]+)? scheme .*: true$' "$RUNNER_TEMP/qofeno-signature.txt"
+          "$build_tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/qofeno-package.txt"
+          grep -Fq "package: name='com.qofeno.simulation.unity'" "$RUNNER_TEMP/qofeno-package.txt"
+          grep -Fxq "sdkVersion:'25'" "$RUNNER_TEMP/qofeno-package.txt"
+          unzip -tq "$apk"
+          unzip -Z1 "$apk" > "$RUNNER_TEMP/qofeno-files.txt"
+          grep -Fxq 'lib/arm64-v8a/libunity.so' "$RUNNER_TEMP/qofeno-files.txt"
+          grep -Fxq 'lib/arm64-v8a/libil2cpp.so' "$RUNNER_TEMP/qofeno-files.txt"
+          sha256sum "$apk" > "$apk.sha256"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: Qofeno-Unity-Android
+          path: |
+            UnityQofeno/Builds/Android/Qofeno-Harbor-Market.apk
+            UnityQofeno/Builds/Android/Qofeno-Harbor-Market.apk.sha256
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    needs: apk
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: Qofeno-Unity-Android
+          path: download
+
+      - name: Publish the Android download
+        working-directory: download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk=Qofeno-Harbor-Market.apk
+          sha256sum --check "$apk.sha256"
+          tag="unity-android-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          Download the APK below on an ARM64 Android 7.1 or newer device.
+          This preview uses the build machine’s debug signing identity. A later preview signed with a different key requires a fresh install.
+          NOTES
+          gh release create "$tag" "$apk" "$apk.sha256" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Qofeno for Android · Unity build $GITHUB_RUN_NUMBER" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$tag/$apk"
+          echo "[Download Qofeno for Android]($url)" >> "$GITHUB_STEP_SUMMARY"

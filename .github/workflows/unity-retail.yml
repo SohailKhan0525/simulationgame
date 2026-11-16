@@ -24,3 +24,14 @@ jobs:
           dotnet-version: "8.0.x"
       - name: Exercise the retail simulation
         run: dotnet run --project "UnityQofeno/Tests~/RetailFlowTests.csproj" --configuration Release
+      - name: Package the Unity Editor project
+        run: |
+          mkdir "$RUNNER_TEMP/Qofeno-source"
+          git archive HEAD UnityQofeno docs/ASSET_LICENSES.md docs/COUNTER_SERVICE.md docs/PC_SIMULATOR_STUDY.md docs/REFERENCE_COVERAGE.csv |
+            tar -x -C "$RUNNER_TEMP/Qofeno-source"
+      - name: Upload the project for Unity Hub
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Qofeno-Unity-Editor-source
+          path: ${{ runner.temp }}/Qofeno-source/
+          if-no-files-found: error

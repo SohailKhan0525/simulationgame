@@ -1,14 +1,9 @@
-# Expansion order
+# Android development roadmap
 
-Harbor Market implements ordering, receiving, shelf stocking, customer visits, checkout, receipts, price changes, a shelf upgrade, XP, savings and a guided first shift. The 0.3.0 Waterfront playtest adds an eye-level camera, photographed surfaces, parked vehicles, improved character shading and contextual shop controls. The checkout lane supports three concurrent shoppers, per-visit reservations and physical queue advancement. A map marks future premises. [Machine-readable backlog](backlog.json)
+The Unity project currently includes the neighborhood grocery, supplier computer, single-item checkout, opening hours, saving, and two traffic lanes. The development order is below.
 
 1. Finish Android acceptance on representative devices, establish the production signer and test two consecutive signed updates with retained saves.
 2. Expand retail depth and presentation with district-wide navigation, better animations, more characters and mobile profiling.
 3. Add Relay Computers and a gaming shop using the retail catalog and shared transaction tests. Add device-specific services as independent operators.
-4. Extend the estate and East Pier collection route into vehicle ownership, dealership trading and fuel inventory.
+4. Build a playable estate and East Pier collection route, followed by vehicle ownership, dealership trading and fuel inventory.
 5. Add a service-based café/restaurant operator, then hotel rooms and bookings. Integrate property purchases and staff only after separate ownership and capacity tests.
-
-
-## Following Opening Hours
-
-Work on shop-floor depth comes first. Add multi-item shopping lists and physical carton placement, then custom fixture layout and offline customer deliveries. Extend East Pier freight pickups to additional suppliers and customer drop-offs. Follow with district vehicle ownership, fuel and dealership trading. The gaming store, restaurant and hotel remain future operators. Physical Android profiling and persistent release signing remain prerequisites for a stable public build.

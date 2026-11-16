@@ -1,5 +1,7 @@
 # Harbor Market visual study
 
+This study records the first prototype. See the [Unity scene and models](../UnityQofeno/README.md#models-interface-and-source) for the current implementation.
+
 The reference set was ten published Steam gallery frames each from [Supermarket Simulator](https://store.steampowered.com/app/2670630/) and [Car For Sale Simulator 2023](https://store.steampowered.com/app/2248760/). This was a screenshot study. Neither game's files were used.
 
 | Observation in the gallery | Change in the playable Harbor District |

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unity Android 0.1.0 · In development
+
+- Added the Unity Harbor Market shift, editable models and C# tests.
+- Retired the earlier engine project and Android exporter. Unity now owns the Android application and build workflow.
+
+## Earlier prototype history
+
+The entries below record the retired prototype’s separate version line.
+
 ## 0.5.1 · Shop-floor detail
 
 - The physical computer shows the same desktop shortcuts and trading clock as the touch interface. The register shows each scanned subtotal on both faces.

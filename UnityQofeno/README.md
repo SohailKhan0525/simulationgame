@@ -14,7 +14,15 @@ On a phone, drag with your left thumb to walk, drag with your right thumb to loo
 
 Open this **UnityQofeno** directory in Unity Hub using **6000.3.6f1**. Open **Assets/Scenes/Harbor.unity** and press Play. The entry scene intentionally starts empty. [MarketSession](Assets/Qofeno/Runtime/MarketSession.cs) constructs the harbor and starts the shift after the scene loads.
 
-With Android Build Support, its SDK/NDK tools and OpenJDK installed for that editor, choose **Qofeno → Build Android APK**. The output is `Builds/Android/Qofeno-Harbor-Market.apk`. The standalone app targets ARM64 and uses `com.qofeno.simulation.unity`. The separately released [Godot Android playtest](../README.md) uses its own package and saves.
+With Android Build Support, its SDK/NDK tools and OpenJDK installed for that editor, choose **Qofeno → Build Android APK**. The output is `Builds/Android/Qofeno-Harbor-Market.apk`. The standalone app targets ARM64 and uses `com.qofeno.simulation.unity`. You can also use the [Android build workflow](https://github.com/SohailKhan0525/simulationgame/actions/workflows/unity-android.yml).
+
+## Build on GitHub
+
+The **Unity Android APK** workflow builds on changes to the Android project on `main`. You can also start it from [Actions → Unity Android APK → Run workflow](https://github.com/SohailKhan0525/simulationgame/actions/workflows/unity-android.yml). Select `main` and leave **Publish** enabled for a direct phone download.
+
+Configure activation once in [Settings → Secrets and variables → Actions](https://github.com/SohailKhan0525/simulationgame/settings/secrets/actions). For account activation, set `UNITY_EMAIL`, `UNITY_PASSWORD`, and either `UNITY_LICENSE` (the contents of the Unity Personal license file) or `UNITY_SERIAL` (Pro). A Unity licensing server reachable from the runner is supported through `UNITY_LICENSING_SERVER`. [GameCI activation guide](https://game.ci/docs/github/activation/)
+
+A successful run verifies the APK signature, package name and ARM64 Unity libraries. Its summary links the downloadable APK. Every published preview has a unique `unity-android-` tag. Manual runs with publication disabled keep the APK and checksum in the **Qofeno-Unity-Android** workflow artifact.
 
 ## Models, interface and source
 
@@ -33,6 +41,6 @@ dotnet run --project 'Tests~/RetailFlowTests.csproj' --configuration Release
 
 The suite exercises partial cartons, full facings, invalid and unaffordable orders, scan/payment ordering, duplicate transactions and save/restore. The editor also provides **Qofeno → Check Harbor Scene in Play Mode** to check the assembled scene with an isolated save.
 
-The simulation passed 57,423 checks, including 8,000 stock and till actions and 500 mid-shift save round-trips. The C# project was typechecked against the matching Unity engine and uGUI APIs. A Unity Editor batch run stopped while initializing licensing before the project could import, so there is no Android build or playtest result for this edition yet.
+The simulation passed 57,423 checks, including 8,000 stock and till actions and 500 mid-shift save round-trips. The C# project was typechecked against the matching Unity engine and uGUI APIs. The initial local Unity Editor run stopped during licensing before the scene imported. The [Android workflow](https://github.com/SohailKhan0525/simulationgame/actions/workflows/unity-android.yml) records subsequent build results.
 
-The mobile playtest target for this first Unity slice is to receive stock, complete a sale, order a replacement case and resume a partially scanned sale on an ARM64 phone. Driving the estate, staffing and the broader Godot campaign remain outside this first Unity shift.
+The mobile playtest target for this first Unity slice is to receive stock, complete a sale, order a replacement case and resume a partially scanned sale on an ARM64 phone. The traffic cars in this shift are driven by the simulation.
