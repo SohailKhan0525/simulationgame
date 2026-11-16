@@ -44,6 +44,15 @@ SETTINGS
 apk="build/$name.apk"
 "$engine" --headless "--export-$mode" Android "$apk"
 test -s "$apk"
+python3 - "$apk" <<'PYZIP'
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1]) as apk:
+    for name in apk.namelist():
+        if name.lower().endswith((".zip", ".7z", "gameassembly.dll", "global-metadata.dat", ".bundle")):
+            raise SystemExit(f"Unexpected reference content in APK: {name}")
+PYZIP
 bt="$ANDROID_HOME/build-tools/35.0.1"
 "$bt/apksigner" verify --verbose --print-certs "$apk" > build/signature.txt
 if [[ "$mode" == release ]]; then

@@ -62,16 +62,17 @@ shift = json.loads((out / "background-save.json").read_bytes())
 shift.update(cash=51, spend=20, revenue=8, receipt=1, xp=36, queue_lane=True,
              open=True, started=True, pos=[4.15, 0.08, -1.15], yaw=0.6,
              flags=dict.fromkeys(("visit", "terminal", "order", "collect", "stock", "open", "sale"), True),
-             log=[{"n": 1, "id": "tea", "paid": 8}])
+             log=[{"n": 1, "id": "tea", "paid": 8, "lines": [{"id": "tea", "price": 8}]}])
 for goods in shift["goods"].values():
     goods.update(back=0, shelf=0, sold=0)
 shift["goods"]["tea"].update(back=0, shelf=4, sold=1, price=8)
+shift["goods"]["soap"].update(shelf=1)
 shell("run-as", package, "tee", slot, input=json.dumps(shift).encode(), stdout=subprocess.DEVNULL)
 launch()
 screen("Continue", "queue-continue.png", True)
 screen("full-line", "queue-floor.png", True)
 screen("Scan", "queue-first-basket.png", True)
-control("Add","queue-cash-drawer.png",(.829,.645,.902,.728))
+screen("Scan", "queue-partial-scan.png", True)
 control("Add","queue-cash-change.png",(.829,.645,.902,.728))
 screen("payment", "queue-cash-paid.png", True)
 screen("ready-line", "queue-advance.png", True)
@@ -86,11 +87,13 @@ for _ in range(20):
     if paid["receipt"] == 3:
         break
     time.sleep(0.5)
-assert (paid["cash"], paid["revenue"], paid["receipt"]) == (67, 24, 3), paid
+assert (paid["cash"], paid["revenue"], paid["receipt"]) == (73, 30, 3), paid
 assert (paid["goods"]["tea"]["shelf"], paid["goods"]["tea"]["sold"]) == (2, 3), paid
+assert paid["goods"]["soap"]["shelf"] == 0 and paid["goods"]["soap"]["sold"] == 1, paid
+assert paid["log"][1]["paid"] == 14 and len(paid["log"][1]["lines"]) == 2, paid
 assert [row["n"] for row in paid["log"]] == [3, 2, 1], paid
 (out / "queue-paid-save.json").write_bytes(raw)
-print("Android till recorded two touch payments, $67 cash and two remaining tea units.")
+print("Android till recorded two touch payments, $73 cash and two remaining tea units.")
 
 # Separate staged views of the installed APK using the same private QA slot.
 # The seed is confined to the emulator. Nothing is added to the shipping game.
@@ -136,7 +139,7 @@ control("Review","supplier-cart.png",(.72,.869,.955,.946))
 control("Place","purchase-review.png",(.132,.477,.245,.555))
 control("Ledger","supplier-paid.png",(.131,.04,.35,.126),False)
 order = background()
-assert order["cash"] == 29 and order["goods"]["tea"]["back"]==5 and order["goods"]["soap"]["back"]==6, order
+assert order["cash"] == 35 and order["goods"]["tea"]["back"]==5 and order["goods"]["soap"]["back"]==6, order
 assert order["last_order"] == {"tea":1,"soap":1} and not order["cart"], order
 
 stage([-4.1,0.08,7.1],1180.0)
@@ -159,5 +162,5 @@ control("Review","closing-time.png",(.64,.442,.96,.521))
 control("Start","daily-report.png",(.12,.552,.88,.634))
 screen("Pause","next-morning.png")
 morning=background()
-assert morning["day"]==2 and morning["clock"]==480 and not morning["open"] and morning["cash"]==67, morning
+assert morning["day"]==2 and morning["clock"]==480 and not morning["open"] and morning["cash"]==73, morning
 print("Verified mixed-cart delivery, touch driving and reload, and day-end settlement on Android.")

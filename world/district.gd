@@ -173,9 +173,9 @@ func shop() -> void:
 	box(-5.85,0.10,-2.7,1.9,0.2,1.55,TIMBER,true)
 	box(4.65,0.52,-3.15,2.55,1.04,1.12,TEAL,true)
 	box(4.65,1.08,-3.15,2.7,0.14,1.22,TIMBER)
-	box(4.2,1.23,-3.13,0.62,0.17,0.47,IRON)
-	box(4.2,1.48,-3.31,0.56,0.4,0.09,IRON)
-	box(4.2,1.48,-3.25,0.47,0.29,0.02,"8ab19e")
+	box(5.68,1.23,-3.51,0.62,0.17,0.47,IRON)
+	box(5.68,1.48,-3.59,0.56,0.4,0.09,IRON)
+	box(5.68,1.48,-3.53,0.47,0.29,0.02,"8ab19e")
 	label3("TILL",Vector3(4.7,0.65,-2.577),0.22,CREAM)
 	box(4.6,0.82,-8.3,2.7,0.14,1.36,TIMBER,true)
 	for x in [3.5,5.7]:
@@ -377,14 +377,18 @@ func fit_out() -> void:
 	for i in 4:
 		prop(preload("res://assets/props/plastic_crate_01.glb"),Vector3(5.97,0.05+i*0.15,-0.83),0.61)
 	solid(Vector3(5.97,0.48,-0.83),Vector3(0.57,0.86,0.55))
-	part("steel",Vector3(4.60,1.170,-3.13),Vector3(0.66,0.027,0.42),"aeb7b6")
-	part("window",Vector3(4.60,1.190,-3.13),Vector3(0.45,0.012,0.30),"334850")
-	box(5.37,1.21,-3.01,0.23,0.11,0.31,"333c3e")
-	part("luminous",Vector3(5.37,1.276,-3.08),Vector3(0.139,0.015,0.095),"a8d0c9")
-	for i in 9: box(5.31+0.06*(i%3),1.274,-3.01+0.045*(i/3),0.033,0.018,0.027,"a9afac")
+	# Belt, scan glass and pack-out deck share a level contact surface.
+	part("steel",Vector3(4.63,1.168,-3.065),Vector3(2.52,0.042,0.53),"aab6b5")
+	box(3.97,1.189,-3.065,1.19,0.012,0.45,"293535")
+	part("window",Vector3(4.63,1.189,-3.065),Vector3(0.22,0.012,0.445),"385554")
+	part("luminous",Vector3(4.63,1.196,-3.065),Vector3(0.010,0.003,0.34),"e27144")
+	for i in 6: box(4.84+i*0.184,1.191,-3.065,0.007,0.008,0.435,"697875")
+	box(5.01,1.21,-3.50,0.23,0.11,0.31,"333c3e")
+	part("luminous",Vector3(5.01,1.276,-3.57),Vector3(0.139,0.015,0.095),"a8d0c9")
+	for i in 9: box(4.95+0.06*(i%3),1.274,-3.50+0.045*(i/3),0.033,0.018,0.027,"a9afac")
 	# Till-side paper bags have folds and handles instead of sealed shipping-carton silhouettes.
 	for i in 3:
-		var x := 5.08+i*0.16
+		var x := 3.59+i*0.16
 		box(x,1.39,-3.53,0.135,0.45,0.19,"b18d65")
 		box(x,1.62,-3.53,0.114,0.012,0.16,"67503b")
 		for dx in [-0.036,0.036]: box(x+dx,1.65,-3.47,0.012,0.08,0.014,TIMBER)

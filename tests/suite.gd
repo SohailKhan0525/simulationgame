@@ -16,6 +16,7 @@ func _initialize() -> void:
 func run() -> void:
 	economy()
 	line_accounts()
+	mixed_checkout()
 	persistence()
 	versions()
 	await integration()
@@ -70,6 +71,33 @@ func economy() -> void:
 	var cash: int = m.d.cash
 	m.order("tea")
 	expect(m.d.cash == cash,"insufficient funds leaves wallet intact")
+
+func mixed_checkout() -> void:
+	var m := Market.opening_shift()
+	m.d.goods.tea.shelf = 1
+	m.toggle_open()
+	expect(not m.reserve_basket(1,["soap","rice"]) and m.on_display("soap")==4,"mixed reservation rejects an unavailable line atomically")
+	expect(not m.reserve_basket(1,["soap","soap"]),"one distinct grocery per line")
+	expect(m.reserve_basket(1,["soap","cocoa","tea"]),"reserve a mixed basket at the shelf")
+	m.set_price("soap",1)
+	m.toggle_open()
+	expect(m.scan(1,0) and not m.scan(1,0) and not m.scan(2,1),"stale touch and wrong visit leave the scanner unchanged")
+	expect(m.reservations[1].subtotal == 6 and m.scan(1,1) and m.scan(1,2),"cashier uses original prices through closing")
+	m.checkout(1)
+	m.checkout(1)
+	expect(m.d.receipt == 1 and m.d.revenue == 25 and m.d.cash == 120 and m.d.log[0].lines.size()==3,"one payment covers all three groceries exactly once")
+	var loaded := Market.new()
+	expect(loaded.restore(JSON.parse_string(JSON.stringify(m.d))) and loaded.d == m.d,"itemized receipt survives a save round trip")
+	var invalid: Dictionary = m.d.duplicate(true)
+	invalid.log[0].lines[1].price = 9
+	expect(not loaded.restore(invalid),"reject receipt with mismatched line total")
+	var v4 := Market.opening_shift()
+	v4.toggle_open()
+	v4.reserve(1,"soap")
+	v4.checkout(1)
+	v4.d.schema = 4
+	v4.d.log[0].erase("lines")
+	expect(loaded.restore(v4.d) and loaded.d.log[0].lines == [{"id":"soap","price":6}],"version four sale gains its original paid line")
 
 func line_accounts() -> void:
 	var m := Market.new()
@@ -316,9 +344,23 @@ func exercise_lane(game: Node) -> void:
 	for id in m.catalog:
 		before_units += int(m.d.goods[id].shelf)
 		display_units += m.on_display(id)
-	expect(before_units - display_units == 3, "three actual shopper parcels leave the display")
+	var held := 0
+	for basket in m.reservations.values(): held += basket.lines.size()
+	expect(held >= 3 and before_units - display_units == held, "every unit in the three physical baskets leaves its display")
 	var first := flow.ready_visit()
 	var second := flow.line[1].visit
+	game.ui.station("till")
+	var items: int = m.reservations[first].lines.size()
+	expect(game.belt.parcels.size()==items and game.belt.camera.current,"native counter shows the real head basket")
+	flow.take_payment(first,0)
+	expect(m.d.receipt==1,"payment handler rejects a partly scanned basket")
+	var point: Vector2 = game.belt.camera.unproject_position(game.belt.parcels[0].global_position)
+	expect(game.belt.hits_next(point),"next grocery can be hit in the native camera")
+	game.ui.scan_product(first,0)
+	game.ui.hud()
+	game.ui.station("till")
+	expect(m.reservations[first].scanned==1,"walking away and returning keeps scan progress")
+	game.ui.hud()
 	flow.serve(second)
 	expect(m.d.receipt == 1 and flow.ready_visit() == first,"only the shopper at the register can pay")
 	flow.serve(first)

@@ -18,6 +18,7 @@ var interact: Button
 var message: Label
 var notice_time := 0.0
 var desk := MarketDesk.new()
+var showing_scan := -1
 var scanned_visit := 0
 var drawer := 0
 var pedals: HarborPedals
@@ -253,6 +254,11 @@ func _process(dt: float) -> void:
 		if notice_time <= 0: message.hide()
 
 func refresh() -> void:
+	if screen == "till":
+		var head: int = app.flow.ready_visit()
+		var count: int = app.market.reservations[head].scanned if head else -1
+		if head != scanned_visit or count != showing_scan: station("till")
+		return
 	if screen != "hud" or not is_instance_valid(hud_stats): return
 	var m: Market = app.market
 	var minutes := int(m.d.clock)
@@ -284,7 +290,7 @@ func refresh() -> void:
 func sheet(id: String, eyebrow: String, title: String, back: Callable) -> void:
 	clear(id)
 	shade = ColorRect.new()
-	shade.color = Color("10171980")
+	shade.color = Color("10171912") if id == "till" else Color("10171980")
 	stage.add_child(shade)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var frame := panel(stage,Color("192326fa"),18)
@@ -448,36 +454,49 @@ func station(id: String) -> void:
 			elif not m.d.open and not m.reservations.is_empty(): text(body,"Serve the remaining baskets before finishing the day.",17,MUTED)
 		"till":
 			var visit: int = app.flow.ready_visit()
+			if scanned_visit != visit: drawer = 0
+			scanned_visit = visit
+			showing_scan = -1
+			app.belt.present(visit,m)
 			if visit:
-				var item: Dictionary = m.reservations[visit]
+				var basket: Dictionary = m.reservations[visit]
+				var count: int = basket.lines.size()
+				var cursor: int = basket.scanned
+				showing_scan = cursor
+				var item: Dictionary = basket.lines[mini(cursor,count-1)]
 				var basket_row := row(body)
 				product_photo(basket_row,item.id,Vector2(65,81))
 				var receipt := column(basket_row)
 				receipt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				text(receipt,m.catalog[item.id].name,24,PAPER,true)
-				text(receipt,"1 item    /    $%d each" % item.price,16,MUTED)
-				text(body,"Total    $%d.00" % item.price,31,PAPER,true)
+				text(receipt,"%d / %d scanned    ·    $%d each" % [cursor,count,item.price],16,MUTED)
+				text(body,"Total    $%d.00" % basket.subtotal,31,PAPER,true)
 				if app.flow.line.size() > 1:
 					text(body,"%d more in line" % (app.flow.line.size()-1),17,MUTED)
-				if scanned_visit != visit:
-					button(body,"Scan product",func():
-						scanned_visit = visit
-						drawer = 0
-						app.sound.cue("scan")
-						station("till"),true)
+				if cursor < count:
+					button(body,"Scan product",scan_product.bind(visit,cursor),true)
+					shade.gui_input.connect(func(event: InputEvent):
+						if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+							if app.belt.hits_next(shade.get_global_transform_with_canvas()*event.position):
+								scan_product(visit,cursor))
 				elif visit % 2 == 1:
 					text(body,"Card presented · charge the scanned total.",17,MUTED)
-					button(body,"Take payment    $%d" % item.price,world_action.bind(app.flow.serve.bind(visit)),true)
+					button(body,"Take payment    $%d" % basket.total,world_action.bind(app.flow.take_payment.bind(visit,drawer)),true)
 				else:
-					var tender := ceili(item.price/5.0)*5
+					var tender := ceili(basket.total/5.0)*5
 					text(body,"Cash tendered   $%d" % tender,18)
 					var change := row(body)
 					button(change,"Less $1",func(): drawer = maxi(0,drawer-1); station("till"))
 					text(change,"Change $%d" % drawer,18).autowrap_mode = TextServer.AUTOWRAP_OFF
 					button(change,"Add $1",func(): drawer = mini(tender,drawer+1); station("till"))
-					button(body,"Take payment    $%d" % item.price,world_action.bind(app.flow.serve.bind(visit)),true).disabled = drawer != tender-int(item.price)
+					button(body,"Take payment    $%d" % basket.total,world_action.bind(app.flow.take_payment.bind(visit,drawer)),true).disabled = drawer != tender-int(basket.total)
 			elif app.flow.line.is_empty(): text(body,"A shopper will wait here after choosing a product.")
-			else: text(body,"The next shopper is approaching. Return to the shop floor to let them reach the till.")
+			else: text(body,"The next shopper is approaching the belt.")
+
+func scan_product(visit: int, cursor: int) -> void:
+	if app.flow.ready_visit() != visit or not app.market.scan(visit,cursor): return
+	app.sound.cue("scan")
+	station("till")
 
 func world_action(action: Callable) -> void:
 	var feedback: String = action.call()

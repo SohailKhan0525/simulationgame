@@ -121,7 +121,10 @@ func window() -> void:
 				for id in m.d.last_order: ui.text(body,"%d cartons   ·   %s" % [m.d.last_order[id],m.catalog[id].name],17,SUB)
 			ui.text(body,"Till receipts",21,INK,true)
 			if m.d.log.is_empty(): ui.text(body,"No payments recorded yet.",17,SUB)
-			for sale in m.d.log: ui.text(body,"%03d     %s     +$%d" % [sale.n,m.catalog[sale.id].name,sale.paid],17,SUB)
+			for sale in m.d.log:
+				ui.text(body,"Receipt %03d     ·     $%d" % [sale.n,sale.paid],19)
+				for entry in sale.lines:
+					ui.text(body,"1 × %s     $%d" % [m.catalog[entry.id].name,entry.price],16,SUB)
 
 func scroll(parent: Control) -> VBoxContainer:
 	var scrollbox := ScrollContainer.new()

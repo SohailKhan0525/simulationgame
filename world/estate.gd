@@ -3,6 +3,8 @@ extends CharacterBody3D
 
 const MODEL := preload("res://assets/props/quayside_estate.glb")
 const WHEELBASE := 2.75
+var cargo_count := 0
+var roof_load: Masonry
 var speed := 0.0
 var steering := 0.0
 var wheels: Array[Node3D] = []
@@ -39,6 +41,31 @@ func _ready() -> void:
 					node.set_surface_override_material(i,lens)
 					lenses.append(lens)
 
+func load_shipments(shipment: Dictionary) -> void:
+	var count := 0
+	for quantity in shipment.values(): count += int(quantity)
+	if count == cargo_count: return
+	cargo_count = count
+	if roof_load:
+		roof_load.hide()
+		roof_load.queue_free()
+		roof_load = null
+	if count == 0: return
+	roof_load = Masonry.new()
+	add_child(roof_load)
+	for x in [-1.35,-0.13]:
+		roof_load.part("steel",Vector3(x,1.64,0),Vector3(0.064,0.055,1.32),"475b5a")
+	for i in count:
+		var x := -1.08 + (i/2)*0.68
+		var z := -0.28 + (i%2)*0.56
+		roof_load.box(x,1.861,z,0.65,0.38,0.53,"a8825b")
+		roof_load.box(x,2.055,z,0.645,0.009,0.06,"e6c29b")
+		roof_load.box(x-0.326,1.87,z,0.006,0.16,0.22,"e8ddc6")
+		roof_load.box(x,2.065,z,0.045,0.012,0.54,"285d63")
+		for side in [-1,1]:
+			roof_load.box(x,1.86,z+side*0.265,0.045,0.40,0.016,"285d63")
+	roof_load.bake()
+
 func equip_headlights() -> void:
 	headlamps = SpotLight3D.new()
 	headlamps.position = Vector3(2.15,0.79,0)
@@ -64,7 +91,9 @@ func drive(dt: float, input: Vector2) -> void:
 	var target := input.y * (9.0 if input.y >= 0 else 3.3)
 	var rate := 2.0 if is_zero_approx(input.y) else 4.4
 	if speed * input.y < 0: rate = 8.4
-	speed = move_toward(speed,target,dt*rate)
+	# Cartons increase the mass accelerated by the same engine and brake force.
+	var mass_factor := 1.0 + 0.045 * cargo_count
+	speed = move_toward(speed,target,dt*rate/mass_factor)
 	steering = move_toward(steering,-input.x*0.5,dt*1.9)
 	var distance := speed*dt
 	if absf(distance) < 0.0001: return

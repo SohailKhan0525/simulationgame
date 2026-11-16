@@ -41,36 +41,27 @@ func outfit(variant: int, wardrobe := -1) -> void:
 	add_child(carton)
 	pose("Idle")
 
-func hold_product(id: String, color: Color) -> void:
-	var wrap := StandardMaterial3D.new()
-	wrap.albedo_color = color
-	wrap.roughness = 0.75
-	var dimensions := Vector3(0.31,0.32,0.21)
-	if id == "cocoa":
-		var tin := CylinderMesh.new()
-		tin.top_radius = 0.12
-		tin.bottom_radius = 0.12
-		tin.height = 0.31
-		tin.radial_segments = 18
-		tin.rings = 0
-		tin.material = wrap
-		carton.mesh = tin
-		dimensions = Vector3(0.18,0.27,0.24)
-	else:
-		if id == "soap": dimensions = Vector3(0.27,0.19,0.16)
-		var pack := BoxMesh.new()
-		pack.size = dimensions
-		pack.material = wrap
-		carton.mesh = pack
-	var ink := StandardMaterial3D.new()
-	ink.albedo_texture = load("res://assets/packaging/%s.png" % id)
-	var face := QuadMesh.new()
-	face.size = Vector2(dimensions.x,dimensions.y)*0.94
-	face.material = ink
-	var label := MeshInstance3D.new()
-	label.mesh = face
-	carton.add_child(label)
-	label.position.z = dimensions.z*0.5+0.003
+func hold_basket(lines: Array, catalog: Dictionary) -> void:
+	carton.mesh = null
+	var basket := Masonry.new()
+	carton.add_child(basket)
+	basket.box(0,-0.10,0,0.53,0.035,0.31,"315450")
+	for edge in [-1,1]:
+		for tier in 3:
+			basket.box(0,-0.07+tier*0.055,edge*0.154,0.53,0.027,0.025,"4d796f")
+			basket.box(edge*0.257,-0.07+tier*0.055,0,0.025,0.027,0.31,"4d796f")
+		for side in [-1,1]:
+			basket.box(edge*0.25,-0.016,side*0.15,0.031,0.19,0.031,"345953")
+		basket.box(edge*0.21,0.12,0,0.022,0.027,0.31,"c0b5a0")
+		for side in [-1,1]: basket.box(edge*0.21,0.085,side*0.145,0.022,0.08,0.022,"c0b5a0")
+	basket.bake()
+	for i in lines.size():
+		var id: String = lines[i].id
+		var pack := GroceryPack.new()
+		basket.add_child(pack)
+		pack.dress(id, Color(catalog[id].color))
+		pack.scale = Vector3.ONE * 0.56
+		pack.position = Vector3((i-(lines.size()-1)*0.5)*0.16,-0.078+pack.half_height()*0.56,0)
 	carton.show()
 	hands.carrying = true
 

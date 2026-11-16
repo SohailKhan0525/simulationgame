@@ -4,7 +4,8 @@ extends RefCounted
 signal changed
 signal display_changed
 signal closed
-const SCHEMA := 4
+const SCHEMA := 5
+const MAX_BASKET := 3
 const OPENING := 480.0
 const CLOSING := 1260.0
 const PARK := [-4.1, 8.85, 0.0]
@@ -17,7 +18,7 @@ const MILESTONES := ["visit", "terminal", "order", "collect", "stock", "open", "
 const OBJECTIVES := ["Enter Harbor Market", "Use the desk at the rear right", "Order a carton at the computer", "Collect your carton at receiving", "Fill the display shelves", "Open the shop at the door sign", "Serve a customer at the till", "Buy the shelf extension at the computer"]
 var catalog: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/catalog.json"))
 var d: Dictionary
-## Visit IDs in insertion order. Each unpaid basket holds one unit at a fixed price.
+## Visit IDs in insertion order. Each reserved line holds one unit at its shelf price.
 var reservations: Dictionary[int, Dictionary] = {}
 
 func _init() -> void:
@@ -231,8 +232,9 @@ func customer_limit() -> int:
 
 func on_display(id: String) -> int:
 	var count := int(d.goods[id].shelf)
-	for item in reservations.values():
-		if item.id == id: count -= 1
+	for basket in reservations.values():
+		for line in basket.lines:
+			if line.id == id: count -= 1
 	return count
 
 func available() -> Array:
@@ -250,13 +252,46 @@ func choose_product(visit: int) -> String:
 		if d.goods[id].price <= budget: return id
 	return ""
 
+func shopping_list(visit: int, first: String) -> Array:
+	var picks := []
+	if first.is_empty(): return picks
+	# The shopper gathers goods from the fixture they physically visited.
+	var dry: bool = catalog[first].category == "Dry goods"
+	var candidates := [first]
+	for id in available():
+		if id != first and (catalog[id].category == "Dry goods") == dry: candidates.append(id)
+	for id in candidates:
+		if on_display(id) > 0 and d.goods[id].price <= int(catalog[id].price) + visit % 4:
+			picks.append(id)
+			if picks.size() >= 1 + (visit - 1) % MAX_BASKET: break
+	return picks
+
 func reserve(visit: int, id: String) -> bool:
+	return reserve_basket(visit, [id])
+
+func reserve_basket(visit: int, ids: Array) -> bool:
 	if not d.open or visit < 1 or reservations.has(visit) or reservations.size() >= customer_limit():
 		return false
-	if not catalog.has(id) or on_display(id) < 1:
-		return false
-	reservations[visit] = {"id": id, "price": int(d.goods[id].price)}
+	if ids.is_empty() or ids.size() > MAX_BASKET: return false
+	var lines := []
+	var seen := {}
+	var total := 0
+	for id in ids:
+		if not catalog.has(id) or seen.has(id) or on_display(id) < 1: return false
+		var price := int(d.goods[id].price)
+		seen[id] = true
+		lines.append({"id": id, "price": price})
+		total += price
+	reservations[visit] = {"lines": lines, "total": total, "scanned": 0, "subtotal": 0}
 	display_changed.emit()
+	return true
+
+func scan(visit: int, index: int) -> bool:
+	if reservations.is_empty() or reservations.keys().front() != visit: return false
+	var basket := reservations[visit]
+	if index != basket.scanned or index >= basket.lines.size(): return false
+	basket.subtotal += basket.lines[index].price
+	basket.scanned += 1
 	return true
 
 func cancel_basket(visit: int) -> void:
@@ -266,25 +301,26 @@ func cancel_basket(visit: int) -> void:
 func checkout(visit: int) -> String:
 	if reservations.is_empty() or reservations.keys().front() != visit:
 		return "Serve the first shopper in line."
-	var item := reservations[visit]
-	var id: String = item.id
-	var paid: int = item.price
-	var g: Dictionary = d.goods[id]
-	if g.shelf < 1: return "Item unavailable."
+	var basket := reservations[visit]
+	var paid: int = basket.total
+	for line in basket.lines:
+		if d.goods[line.id].shelf < 1: return "Item unavailable."
 	reservations.erase(visit)
-	g.shelf -= 1
-	g.sold += 1
+	for line in basket.lines:
+		d.goods[line.id].shelf -= 1
+		d.goods[line.id].sold += 1
 	d.revenue += paid
 	d.cash += paid
 	d.receipt += 1
 	d.xp += 8
 	var bonus: bool = int(d.receipt) % 5 == 0
 	if bonus: d.cash += 5
-	d.log.push_front({"n": d.receipt, "id": id, "paid": paid})
+	d.log.push_front({"n": d.receipt, "id": basket.lines[0].id, "lines": basket.lines, "paid": paid})
 	if d.log.size() > 15: d.log.pop_back()
 	mark("sale")
 	changed.emit()
-	return "Paid $%d for %s.%s" % [paid, catalog[id].name, " Trading bonus +$5." if bonus else ""]
+	var label: String = catalog[basket.lines[0].id].name if basket.lines.size() == 1 else "%d groceries" % basket.lines.size()
+	return "Paid $%d for %s.%s" % [paid, label, " Trading bonus +$5." if bonus else ""]
 
 func expand() -> String:
 	if d.expanded: return "Display extension already installed."
@@ -342,7 +378,7 @@ func restore(raw: Variant) -> bool:
 			if s.clock < 0 or s.clock >= 1440: return false
 			s.clock = clampf(s.clock, OPENING, CLOSING) if s.started else OPENING
 			if s.clock == CLOSING: s.open = false
-		s.schema = SCHEMA
+		s.schema = 4
 	if not s.has("shipment") and not s.has("freight"):
 		s.shipment = {}
 		s.freight = ""
@@ -364,15 +400,32 @@ func restore(raw: Variant) -> bool:
 		if g.back > 54 or g.shelf > (12 if s.expanded else 6): return false
 		if g.price < catalog[id].cost or g.price > catalog[id].price * 2: return false
 		count += int(g.sold)
-	if count != s.receipt: return false
+	if count < s.receipt or count > s.receipt * MAX_BASKET: return false
+	if s.schema < 5 and count != s.receipt: return false
 	for k in s.flags:
 		if not k in MILESTONES or s.flags[k] != true: return false
 	if not s.get("log") is Array or s.log.size() > 15: return false
+	var logged_units := 0
 	for row in s.log:
 		if not row is Dictionary or not catalog.has(row.get("id")): return false
 		if not whole(row.get("n"), 1, s.receipt) or not whole(row.get("paid"), 1): return false
 		row.n = int(row.n)
 		row.paid = int(row.paid)
+		if s.schema < 5: row.lines = [{"id": row.id, "price": row.paid}]
+		if not row.get("lines") is Array or row.lines.is_empty() or row.lines.size() > MAX_BASKET: return false
+		var seen := {}
+		var total := 0
+		for entry in row.lines:
+			if not entry is Dictionary or not catalog.has(entry.get("id")) or seen.has(entry.id): return false
+			if not whole(entry.get("price"), int(catalog[entry.id].cost), int(catalog[entry.id].price)*2): return false
+			entry.price = int(entry.price)
+			seen[entry.id] = true
+			total += entry.price
+		if row.lines[0].id != row.id or total != row.paid: return false
+		logged_units += row.lines.size()
+	var older: int = s.receipt - s.log.size()
+	if older < 0 or count < logged_units + older or count > logged_units + older * MAX_BASKET: return false
+	s.schema = SCHEMA
 	if not s.get("pos") is Array or s.pos.size() != 3: return false
 	for val in s.pos + [s.get("yaw"), s.get("clock")]:
 		if not (val is float or val is int) or not is_finite(float(val)): return false
