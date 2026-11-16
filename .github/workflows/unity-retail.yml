@@ -1,0 +1,26 @@
+name: Unity retail simulation checks
+
+on:
+  push:
+    paths:
+      - "UnityQofeno/**"
+      - ".github/workflows/unity-retail.yml"
+  pull_request:
+    paths:
+      - "UnityQofeno/**"
+      - ".github/workflows/unity-retail.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  retail-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Exercise the retail simulation
+        run: dotnet run --project "UnityQofeno/Tests~/RetailFlowTests.csproj" --configuration Release

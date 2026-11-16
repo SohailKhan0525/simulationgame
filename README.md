@@ -4,6 +4,9 @@ Run Harbor Market on Quay Road. Prepare before 08:00 opening, order supplies at 
 
 **Android playtest 0.5.1 · Counter Service** · [Download the 97.9 MB APK](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-efcef962773f/Qofeno-Simulation-0.5.1-internal.apk) · [Release and checksum](https://github.com/SohailKhan0525/simulationgame/releases/tag/internal-efcef962773f)
 
+**Unity and C# edition.** The [Harbor Market Unity project](UnityQofeno/README.md) contains the first native retail shift, original 3D models, and a landscape supplier terminal. The Android playtest linked above is the Godot edition.
+
+
 Scan mixed baskets, read the running total on the physical register, and look up each receipt at the shop computer. Its monitor shows the same desktop and clock as the touch view. Loaded cartons ride on the estate and affect how it accelerates and brakes.
 
 ![A mixed basket on the native Android checkout belt](https://github.com/SohailKhan0525/simulationgame/releases/download/internal-efcef962773f/queue-first-basket.png)
