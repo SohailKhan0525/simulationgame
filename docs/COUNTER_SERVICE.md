@@ -25,6 +25,23 @@ Actual C# is publicly readable for some dependencies. The uploaded build lists U
 
 The game-specific evidence below comes from scene records and compiled game routines. Cpp2IL's C#-shaped files give declarations and recovered names. The 15 higher-level routine reconstructions are decompiler pseudocode. The developer's comments, original expressions and source-line layout require a developer-supplied project or an official source release.
 
+### Public sources checked on 16 November 2026
+
+I searched in English and Turkish using the game title, studio name and creator's name. Nokta's site, its Steam releases, public developer interviews and indexed code repositories yielded no verifiable studio release of the original Unity project. Some similarly named repositories do contain C# files. Their provenance matters.
+
+| Lead | What the evidence establishes |
+|---|---|
+| Nokta's **free Prologue**, 26 January 2024 | The published depot inventory lists a 371 KiB managed `Assembly-CSharp.dll`. This older build is a candidate for recovering readable method bodies with a .NET decompiler. The depot listing was verified. The Steam content session timed out here, so this pass did not obtain or decompile that DLL. [Nokta's Steam listing](https://store.steampowered.com/app/2772560/Supermarket_Simulator_Prologue/) · [Depot file list](https://steamdb.info/depot/2772561/) |
+| GitHub project titled **SuperMarket-Simulator-Source-Code** | Its checked-in Unity settings name the product *SuperMarket Store Simulator*, name a different company, and specify the Android application ID `com.supermarket.simulator.uiop.store.sim`. Those identifiers give no basis for attributing this project to Nokta. [Project settings at the inspected revision](https://github.com/Grigore1P/SuperMarket-Simulator-Source-Code/blob/2f9af434167efe3f812eaf75cafb3782b441366c/ProjectSettings/ProjectSettings.asset) |
+| Community code | Tobey's repository describes its mod-loading package. An April 2024 community patch proposes assigning shoppers to the shortest eligible queue and a second patch proposes taking from the least-filled available carton. These are the mod author's proposed changes. Neither patch establishes the retail game's current selection rule. [Mod pack](https://github.com/toebeann/BepInEx.SupermarketSimulator) · [Queue patch](https://github.com/marcbal/SupermarketAssistant/blob/516694961ca41de44ddf71e14880d8353be93afc/mods/customer-pick-checkout-wisely.diff) · [Carton patch](https://github.com/marcbal/SupermarketAssistant/blob/516694961ca41de44ddf71e14880d8353be93afc/mods/restocker-choose-emptiest-box.diff) |
+
+### What the developer documented
+
+- **Checkout.** Nokta describes letting players decide how much change to give. In the uploaded 1.7.3 build, the cash-completion routine references separate change-approval and minimum-change checks, customer speech and incorrect-change statistics. Qofeno 0.5.1 enforces exact change. A player can therefore produce a different outcome at the two registers even when their displays look similar. [Nokta's game description](https://noktagames.net/)
+- **Handheld UI.** Patch 1.6.0 added larger type and images. Players can change the layout at the market computer and choose it separately for individual panels. Qofeno could use that distinction to enlarge a crowded ordering screen while preserving the view of physical groceries at the till. [Developer patch notes](https://store.steampowered.com/news/app/2670630/view/676255623445217640)
+- **Graphics.** The 1.0 release notes identify the product-and-box renderer, displays mounted on furniture, nighttime rendering and store lighting as specific areas of work. For Qofeno, a stocked aisle, an active computer and an illuminated shop at closing are three distinct scenes worth measuring on the same phone. [Producer's release notes](https://store.steampowered.com/news/posts/?enddate=1750355136&feed=steam_community_announcements)
+- **Staff and vehicles.** Nokta described rewriting restockers to address stalled workers and flying boxes, then adding a courier in 1.7.3. The player packs the order and hands it over before the courier takes responsibility. These are concrete handoffs to test when extending Qofeno beyond its current supplier pickup. [Restocker rewrite](https://steamdb.info/patchnotes/22885784/) · [Courier update](https://store.steampowered.com/news/app/2670630/view/680764929940134716)
+
 ## What the four scenes contain
 
 Unity stores a scene as an object graph. For each numbered scene the audit followed transform parents to roots, joined each canvas to its game object, and counted cameras, lights, colliders, LOD groups and reflection probes. Scene numbers below are the names found in the player build.
