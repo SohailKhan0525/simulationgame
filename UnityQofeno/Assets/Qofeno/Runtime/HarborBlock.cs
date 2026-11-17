@@ -23,6 +23,7 @@ namespace Qofeno
         Material tile, brick, pavement, asphalt, plaster, milk, ink, marine, brass, wood;
         Material slate, charcoal, window, lamp, line, ochre, scarlet, neon, sky;
         Font signFont;
+        Material signMaterial;
         Light sun;
         Transform hourHand, minuteHand;
         readonly List<TextMesh> tradingSigns = new List<TextMesh>(2);
@@ -107,6 +108,33 @@ namespace Qofeno
             scarlet = Finish("Oxide red", "9A564A", .18f);
             signFont = Resources.Load<Font>("ShopType/BarlowCondensed-SemiBold");
             if (signFont == null) signFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var signShader = Resources.Load<Shader>("MarketWorldText");
+            if (signShader != null && signShader.isSupported)
+            {
+                signMaterial = new Material(signShader) { name = "Harbor sign lettering" };
+                owned.Add(signMaterial);
+                RefreshSignAtlas(signFont);
+                Font.textureRebuilt += RefreshSignAtlas;
+            }
+            else
+            {
+                signMaterial = signFont.material;
+                Debug.LogWarning("World text shader unavailable. Using the default font material.");
+            }
+        }
+
+        void RefreshSignAtlas(Font font)
+        {
+            if (font == signFont) signMaterial.mainTexture = font.material.mainTexture;
+        }
+
+        internal void ApplyWorldFont(TextMesh label)
+        {
+            label.font = signFont;
+            var renderer = label.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = signMaterial;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
         }
 
         static Color Hex(string value)
@@ -543,7 +571,7 @@ namespace Qofeno
             node.transform.localPosition=position;
             node.transform.localRotation=Quaternion.Euler(0,yaw,0);
             var label=node.AddComponent<TextMesh>();
-            label.font=signFont;
+            ApplyWorldFont(label);
             label.fontSize=80;
             // Font glyphs at characterSize 1 occupy about 0.7 units at the legacy 10px design size.
             // Set pixel-to-world scale explicitly so Unity's fontSize only affects atlas resolution.
@@ -554,10 +582,6 @@ namespace Qofeno
             label.color=color;
             label.text=text;
             if(trading) tradingSigns.Add(label);
-            var renderer=node.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial=signFont.material;
-            renderer.shadowCastingMode=ShadowCastingMode.Off;
-            renderer.receiveShadows=false;
         }
 
         void BakeGeometry()
@@ -688,6 +712,7 @@ namespace Qofeno
 
         void OnDestroy()
         {
+            Font.textureRebuilt -= RefreshSignAtlas;
             if(RenderSettings.skybox==sky) RenderSettings.skybox=null;
             foreach(var value in owned) if(value!=null) Destroy(value);
         }

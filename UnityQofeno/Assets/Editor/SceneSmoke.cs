@@ -102,6 +102,9 @@ namespace Qofeno.Editor
                     "the retail shift and player controller started");
                 Ensure(camera.transform.IsChildOf(market.Walker.transform) && camera.targetTexture == null,
                     "the shopkeeper camera renders to the display");
+                var surfaceShader = AssetDatabase.LoadAssetAtPath<Shader>(HarborStartupCheck.SurfaceShaderPath);
+                Ensure(surfaceShader && (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null || surfaceShader.isSupported),
+                    "the Harbor surface shader is available");
                 var view = GeometryUtility.CalculateFrustumPlanes(camera);
                 bool stationInView = false;
                 foreach (var name in new[] { "Shelf", "Checkout" })
@@ -113,8 +116,8 @@ namespace Qofeno.Editor
                     Ensure(mesh && mesh.sharedMesh && mesh.sharedMesh.vertexCount > 0 &&
                         renderer && renderer.enabled && renderer.gameObject.activeInHierarchy, name + " has drawable geometry");
                     var material = renderer.sharedMaterial;
-                    Ensure(material && material.shader && material.shader.name != "Hidden/InternalErrorShader" &&
-                        material.mainTexture, name + " has its printed surface");
+                    Ensure(material && material.shader == surfaceShader && material.mainTexture,
+                        name + " uses the printed Harbor surface");
                     if ((camera.cullingMask & (1 << station.gameObject.layer)) != 0 &&
                         GeometryUtility.TestPlanesAABB(view, renderer.bounds)) stationInView = true;
                 }
@@ -158,14 +161,18 @@ namespace Qofeno.Editor
                 camera.cullingMask = 0;
                 var sky = ReadView();
                 int litWorldPixels = 0;
+                int shaderErrorPixels = 0;
                 for (int i = 0; i < world.Length; i++)
                 {
                     var a = world[i];
                     var b = sky[i];
+                    // Unity renders missing or unsupported shader passes in bright magenta.
+                    if (a.r > 210 && a.b > 210 && a.g < 40) shaderErrorPixels++;
                     if ((a.r > 12 || a.g > 12 || a.b > 12) &&
                         (Math.Abs(a.r - b.r) + Math.Abs(a.g - b.g) + Math.Abs(a.b - b.b) > 24)) litWorldPixels++;
                 }
                 Ensure(litWorldPixels > world.Length / 100, "the camera draws lit shop geometry over its background");
+                Ensure(shaderErrorPixels < world.Length / 20, "shop surfaces render without the shader error color");
             }
             finally
             {
