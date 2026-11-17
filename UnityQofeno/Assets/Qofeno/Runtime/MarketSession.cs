@@ -29,15 +29,26 @@ namespace Qofeno
             public int day;
             public int businessDay, reportDay, visitorNumber;
             public HarborQueue.Snapshot queue;
+            public VisitorSnapshot visitor;
             public bool hasView;
             public Vector3 position;
             public float yaw, pitch;
         }
 
+        [Serializable]
+        sealed class VisitorSnapshot
+        {
+            public int phase;
+            public Vector3 position;
+            public float heading;
+            public Vector3[] remainingStops;
+        }
+
         static readonly Vector3 Outside = new Vector3(0, 0, -3.85f);
         static readonly Vector3 Aisle = new Vector3(-.15f, 0, 1.35f);
         static readonly Vector3 EndOfTill = new Vector3(.25f, 0, 2.98f);
-        static readonly Vector3 CoastalShelfPosition = new Vector3(-3.1f, 0, 4.12f);
+        static readonly Vector3 AnnexAisle = new Vector3(-.7f, 0, 3.25f);
+        static readonly Vector3 Door = new Vector3(0, 0, -.8f);
         const int SlotsPerFixture = RetailShift.BaseSkuCount * RetailShift.ShelfCapacity;
         readonly Transform[] stock = new Transform[SlotsPerFixture * 3];
         readonly Transform[] belt = new Transform[RetailShift.MaxBasket];
@@ -54,6 +65,7 @@ namespace Qofeno
         Transform shelf, secondShelf, coastalShelf, checkout, shopper, inHand;
         HarborQueue waitingLine;
         HarborQueue.Snapshot savedQueue;
+        VisitorSnapshot savedVisitor;
         int tapFinger = -1;
         Vector2 tapOrigin;
         TillCashDrawer drawer;
@@ -141,7 +153,7 @@ namespace Qofeno
             waitingLine = HarborQueue.Build(transform);
             waitingLine.Restore(savedQueue);
             audioCues = gameObject.AddComponent<MarketAudio>();
-            if (Shift.CustomerSku >= 0)
+            if (!RestoreVisitor() && Shift.CustomerSku >= 0)
             {
                 shopper.gameObject.SetActive(true);
                 shopper.position = HarborBlock.CustomerPosition;
@@ -198,7 +210,7 @@ namespace Qofeno
             minutes += dt * 2f;
             if (minutes >= 1440) { minutes -= 1440; day++; }
             if (day > businessDay && minutes >= RetailShift.OpeningMinute &&
-                !ui.DeskOpen && !openingDesk && Shift.CustomerSku < 0 && !waitingLine.Occupied)
+                !ui.DeskOpen && !openingDesk && visit == Visit.Between && !waitingLine.Occupied)
             {
                 CloseBooks(day);
                 return;
@@ -212,11 +224,7 @@ namespace Qofeno
             if (!ui.DeskOpen && !openingDesk) TapGroceries();
             for (int i = 0; i < Shift.ScannedCount; i++)
                 if (belt[i]) belt[i].localPosition = Vector3.MoveTowards(belt[i].localPosition, BagSpot(i), dt * 1.35f);
-            if (Shift.HasStocker && block.TickStocker(true, StockerHasWork(), dt) && Shift.RestockOne() >= 0)
-            {
-                RefreshModels();
-                SaveShift();
-            }
+            if (Shift.HasStocker) AdvanceStocker(dt);
             hudTimer -= dt;
             if (hudTimer <= 0) { UpdateHud(); hudTimer = .1f; }
             if (Input.GetKeyDown(KeyCode.Escape) && ui.DeskOpen) LeaveDesk();
@@ -250,9 +258,12 @@ namespace Qofeno
                 shopper.position = Outside;
                 visitorNumber = NextVisitor();
                 gait.SetAppearance(visitorNumber);
-                if (AvailableSku() >= RetailShift.BaseSkuCount)
-                    SetRoute(Visit.Entering, new Vector3(0, 0, -.8f), Aisle, new Vector3(-.7f,0,3.25f), CoastalShelfPosition + Vector3.back * .75f);
-                else SetRoute(Visit.Entering, new Vector3(0, 0, -.8f), HarborBlock.ShelfPosition + Vector3.back * .8f);
+                int sku = AvailableSku();
+                if (sku >= RetailShift.BaseSkuCount)
+                    SetRoute(Visit.Entering, Door, Aisle, AnnexAisle, HarborBlock.CoastalShelfPosition + Vector3.back * .75f);
+                else if (Shift.GetFacing(sku, false) == 0)
+                    SetRoute(Visit.Entering, Door, Aisle, AnnexAisle);
+                else SetRoute(Visit.Entering, Door, HarborBlock.ShelfPosition + Vector3.back * .8f);
                 return;
             }
 
@@ -272,13 +283,15 @@ namespace Qofeno
                 if (ReserveBasket())
                 {
                     if (shopper.position.z > 3)
-                        SetRoute(Visit.ToTill, new Vector3(-.7f,0,3.25f), EndOfTill, HarborBlock.CustomerPosition);
+                        SetRoute(Visit.ToTill, AnnexAisle, EndOfTill, HarborBlock.CustomerPosition);
                     else SetRoute(Visit.ToTill, Aisle, EndOfTill, HarborBlock.CustomerPosition);
+                    SaveShift();
                 }
                 else
                 {
                     if (sku >= 0) ui.Notify("Shopper left · check your shelf prices");
-                    SetRoute(Visit.Leaving, new Vector3(0, 0, -.8f), Outside);
+                    if (shopper.position.z > 3) SetRoute(Visit.Leaving, AnnexAisle, Aisle, Door, Outside);
+                    else SetRoute(Visit.Leaving, Door, Outside);
                 }
             }
             else if (visit == Visit.ToTill)
@@ -305,7 +318,7 @@ namespace Qofeno
             routeIndex = 0;
         }
 
-        void WalkOut() => SetRoute(Visit.Leaving, EndOfTill, Aisle, new Vector3(0, 0, -.8f), Outside);
+        void WalkOut() => SetRoute(Visit.Leaving, EndOfTill, Aisle, Door, Outside);
 
         static bool IsShelf(Station station) =>
             station == Station.Shelf || station == Station.Annex || station == Station.CoastalShelf;
@@ -318,7 +331,6 @@ namespace Qofeno
             if (sku < 0 || !Shift.BeginBasket(sku, unchecked(visitorNumber * 397 + day * 17))) return false;
             nextPreference = (sku + 1) % RetailShift.SkuCount;
             RefreshModels();
-            SaveShift();
             return true;
         }
 
@@ -366,7 +378,7 @@ namespace Qofeno
         string ActionFor(Station station)
         {
             if (station == Station.Desk) return "Use computer";
-            if (IsShelf(station) && Shift.HeldSku >= 0 && Shift.GetShelf(Shift.HeldSku) < Shift.CapacityFor(Shift.HeldSku))
+            if (IsShelf(station) && Shift.HeldSku >= 0 && Shift.GetFacing(Shift.HeldSku, station == Station.Annex) < RetailShift.ShelfCapacity)
             {
                 bool coastal = Shift.HeldSku >= RetailShift.BaseSkuCount;
                 if (coastal == (station == Station.CoastalShelf)) return "Stock shelf";
@@ -397,7 +409,7 @@ namespace Qofeno
                 case Station.Annex:
                 case Station.CoastalShelf:
                     if (Shift.HeldSku >= 0)
-                        return names[Shift.HeldSku] + "   " + Shift.GetShelf(Shift.HeldSku) + " / " + Shift.CapacityFor(Shift.HeldSku);
+                        return names[Shift.HeldSku] + "   " + Shift.GetFacing(Shift.HeldSku, station == Station.Annex) + " / " + RetailShift.ShelfCapacity;
                     return "Grocery shelf";
                 case Station.Desk: return "Supplier desk";
                 case Station.None: return "";
@@ -427,7 +439,7 @@ namespace Qofeno
             if (IsShelf(focus))
             {
                 int sku = Shift.HeldSku, before = Shift.HeldUnits;
-                done = Shift.Stock();
+                done = Shift.StockAt(focus == Station.Annex);
                 notice = (before - Shift.HeldUnits) + " stocked · " + names[sku];
             }
             else if (focus == Station.Checkout)
@@ -527,7 +539,7 @@ namespace Qofeno
             for (int i = 0; i < Input.touchCount; i++)
             {
                 var touch = Input.GetTouch(i);
-                if (touch.phase == TouchPhase.Began && touch.position.x > Screen.safeArea.center.x &&
+                if (touch.phase == TouchPhase.Began &&
                     (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject(touch.fingerId)))
                 {
                     tapFinger = touch.fingerId;
@@ -600,12 +612,17 @@ namespace Qofeno
             });
         }
 
-        bool StockerHasWork()
+        void AdvanceStocker(float dt)
         {
-            if (!Trading) return false;
-            for (int i = 0; i < RetailShift.SkuCount; i++)
-                if (Shift.GetDelivered(i) > 0 && Shift.GetShelf(i) < Shift.CapacityFor(i)) return true;
-            return false;
+            int sku = Trading ? Shift.NextRestockSku() : -1;
+            bool annex = sku >= 0 && sku < RetailShift.BaseSkuCount &&
+                Shift.GetFacing(sku, false) == RetailShift.ShelfCapacity;
+            if (block.TickStocker(true, sku, annex, dt, out int placedSku, out bool placedAnnex) &&
+                Shift.RestockAt(placedSku, placedAnnex))
+            {
+                RefreshModels();
+                SaveShift();
+            }
         }
 
         static Vector3 BagSpot(int index) => ShopModels.ScannerSpot + new Vector3(index * .16f, 0, index % 2 * .12f);
@@ -631,7 +648,7 @@ namespace Qofeno
             {
                 block.SetReceivingExpanded(true);
                 secondShelf = BuildShelf(HarborBlock.SecondShelfPosition, 1);
-                coastalShelf = BuildShelf(CoastalShelfPosition, 2);
+                coastalShelf = BuildShelf(HarborBlock.CoastalShelfPosition, 2);
                 coastalShelf.name = "Coastal provisions";
             }
             bool priceChanged = false;
@@ -640,14 +657,15 @@ namespace Qofeno
                 cartons[sku].gameObject.SetActive(Shift.GetDelivered(sku) > 0);
                 priceChanged |= shelfPrices[sku] != Shift.Price(sku);
                 shelfPrices[sku] = Shift.Price(sku);
-                int units = Shift.GetShelf(sku);
+                int units = Shift.GetFacing(sku, false);
+                int overflow = Shift.GetFacing(sku, true);
                 for (int n = 0; n < RetailShift.ShelfCapacity; n++)
                 {
                     int slot = sku % RetailShift.BaseSkuCount * RetailShift.ShelfCapacity + n;
                     if (sku < RetailShift.BaseSkuCount)
                     {
                         stock[slot].gameObject.SetActive(n < units);
-                        if (secondShelf) stock[SlotsPerFixture + slot].gameObject.SetActive(RetailShift.ShelfCapacity + n < units);
+                        if (secondShelf) stock[SlotsPerFixture + slot].gameObject.SetActive(n < overflow);
                     }
                     else if (coastalShelf) stock[2 * SlotsPerFixture + slot].gameObject.SetActive(n < units);
                 }
@@ -693,7 +711,7 @@ namespace Qofeno
             if (!IsReady) return;
             var save = new Save { shift = Shift.Capture(), minutes = minutes, day = day,
                 businessDay = businessDay, reportDay = reportDay, visitorNumber = visitorNumber,
-                queue = waitingLine.Capture() };
+                queue = waitingLine.Capture(), visitor = CaptureVisitor() };
             if (controls != null)
             {
                 save.position = controls.transform.position;
@@ -709,6 +727,34 @@ namespace Qofeno
         static bool ValidPosition(Vector3 p) =>
             Mathf.Abs(p.x) <= 65 && p.z >= -19 && p.z <= 4.9f && p.y >= -.65f && p.y <= 1.0f;
 
+        VisitorSnapshot CaptureVisitor()
+        {
+            if (visit == Visit.Between || visit == Visit.Waiting) return null;
+            int count = routeCount - routeIndex;
+            if (count <= 0) return null;
+            var remaining = new Vector3[count];
+            Array.Copy(route, routeIndex, remaining, 0, count);
+            return new VisitorSnapshot { phase = (int)visit, position = shopper.position,
+                heading = shopper.eulerAngles.y, remainingStops = remaining };
+        }
+
+        bool RestoreVisitor()
+        {
+            var saved = savedVisitor;
+            if (saved == null || !ValidPosition(saved.position) || !(saved.heading >= 0 && saved.heading <= 360) ||
+                saved.remainingStops == null || saved.remainingStops.Length < 1 || saved.remainingStops.Length > route.Length)
+                return false;
+            var phase = (Visit)saved.phase;
+            if (phase != Visit.Entering && phase != Visit.ToTill && phase != Visit.Leaving) return false;
+            if ((phase == Visit.ToTill) != (Shift.BasketCount > 0)) return false;
+            foreach (var stop in saved.remainingStops) if (!ValidPosition(stop)) return false;
+            shopper.position = saved.position;
+            shopper.rotation = Quaternion.Euler(0, saved.heading, 0);
+            shopper.gameObject.SetActive(true);
+            SetRoute(phase, saved.remainingStops);
+            return true;
+        }
+
         void Restore()
         {
             if (!PlayerPrefs.HasKey(SaveKey)) return;
@@ -723,6 +769,7 @@ namespace Qofeno
                 reportDay = save.reportDay > 0 && save.reportDay < businessDay ? save.reportDay : 0;
                 visitorNumber = Mathf.Max(0, save.visitorNumber);
                 savedQueue = save.queue;
+                savedVisitor = save.visitor;
                 if (save.hasView && ValidPosition(save.position) &&
                     save.yaw >= 0 && save.yaw <= 360 && Mathf.Abs(save.pitch) <= 70)
                 {

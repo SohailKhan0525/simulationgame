@@ -6,15 +6,20 @@ namespace Qofeno
     public sealed partial class HarborBlock
     {
         public static readonly Vector3 SecondShelfPosition = new Vector3(-.92f, 0, 4.12f);
-        static readonly Vector3 ReceivingStand = new Vector3(-4.53f, 0, -.37f);
-        static readonly Vector3 PalletEnd = new Vector3(-4.53f, 0, 1.13f);
-        static readonly Vector3 ShelfStand = new Vector3(-3.55f, 0, 1.96f);
+        public static readonly Vector3 CoastalShelfPosition = new Vector3(-3.10f, 0, 4.12f);
+        static readonly Vector3 StockroomAisle = new Vector3(-3.81f, 0, 1.38f);
+        static readonly Vector3 RearAisle = new Vector3(-3.81f, 0, 3.36f);
         readonly Dictionary<Transform, TextMesh[]> shelfTickets = new Dictionary<Transform, TextMesh[]>();
 
         Transform stocker, workCase, receivingExtension;
-        bool clearedPallet;
+        readonly Transform[] caseSamples = new Transform[RetailShift.SkuCount];
+        readonly Vector3[] workPath = new Vector3[4];
+        int workSku = -1, workPoint, workPoints;
+        bool workAnnex;
+        Vector3 receivingApproach, shelfFace;
+
         ShopModels.WalkCycle stockerGait;
-        enum RestockPhase { Waiting, Lifting, Carrying, Placing, Returning }
+        enum RestockPhase { Waiting, Collecting, Lifting, Carrying, Placing, Returning }
         RestockPhase restockPhase;
         float workPause, workStride;
 
@@ -176,14 +181,16 @@ namespace Qofeno
                 tickets[sku].text=RetailShift.NameOf(firstSku+sku)+"    "+MarketSession.Money(pence[firstSku+sku]);
         }
 
-        public bool TickStocker(bool hired, bool hasWork, float dt)
+        public bool TickStocker(bool hired, int targetSku, bool annex, float dt, out int placedSku, out bool placedAnnex)
         {
+            placedSku = -1;
+            placedAnnex = false;
             if (!hired) return false;
             if (!stocker)
             {
                 stocker = ShopModels.Customer(transform).transform;
                 stocker.name = "Harbor stock clerk";
-                stocker.localPosition = ReceivingStand;
+                stocker.localPosition = StockroomAisle;
                 stocker.localRotation = Quaternion.Euler(0,-90f,0);
                 stockerGait = ShopModels.ArticulateCustomer(stocker);
                 stockerGait.DressForWork();
@@ -195,52 +202,106 @@ namespace Qofeno
             switch (restockPhase)
             {
                 case RestockPhase.Waiting:
-                    if (hasWork) { restockPhase=RestockPhase.Lifting; workPause=.9f; }
-                    return false;
+                    if (targetSku >= 0 && targetSku < caseSamples.Length) StartCollection(targetSku,annex);
+                    break;
+                case RestockPhase.Collecting:
+                    if (FollowWorkPath(false,dt))
+                    {
+                        stocker.localRotation = Quaternion.Euler(0,workSku < RetailShift.BaseSkuCount ? 90 : -90,0);
+                        restockPhase=RestockPhase.Lifting;
+                        workPause=.9f;
+                    }
+                    break;
                 case RestockPhase.Lifting:
                     workPause -= dt;
                     stockerGait.HoldCase(Mathf.Clamp01(1f - workPause));
-                    if (workPause<=0)
+                    if (workPause <= 0)
                     {
                         workCase.gameObject.SetActive(true);
-                        clearedPallet=false;
-                        restockPhase=RestockPhase.Carrying;
+                        StartShelfTrip();
                     }
-                    return false;
+                    break;
                 case RestockPhase.Carrying:
-                    if (!clearedPallet)
+                    if (FollowWorkPath(true,dt))
                     {
-                        clearedPallet=WalkTo(PalletEnd,true,dt);
-                        return false;
-                    }
-                    if (WalkTo(ShelfStand,true,dt))
-                    {
-                        stocker.localRotation=Quaternion.Euler(0,-115f,0);
+                        stocker.localRotation = Quaternion.Euler(0,180f,0);
                         restockPhase=RestockPhase.Placing;
-                        workPause=1.2f;
+                        workPause=1.1f;
                     }
-                    return false;
+                    break;
                 case RestockPhase.Placing:
-                    workPause-=dt;
-                    if (workPause>0) return false;
-                    workCase.gameObject.SetActive(false);
-                    clearedPallet=false;
-                    restockPhase=RestockPhase.Returning;
-                    return true;
+                    workPause -= dt;
+                    if (workPause <= 0)
+                    {
+                        workCase.gameObject.SetActive(false);
+                        placedSku=workSku;
+                        placedAnnex=workAnnex;
+                        StartReturnTrip();
+                        return true;
+                    }
+                    break;
                 case RestockPhase.Returning:
-                    if (!clearedPallet)
-                    {
-                        clearedPallet=WalkTo(PalletEnd,false,dt);
-                        return false;
-                    }
-                    if (WalkTo(ReceivingStand,false,dt))
-                    {
-                        stocker.localRotation=Quaternion.Euler(0,-90f,0);
-                        restockPhase=RestockPhase.Waiting;
-                    }
-                    return false;
+                    if (FollowWorkPath(false,dt)) restockPhase=RestockPhase.Waiting;
+                    break;
             }
             return false;
+        }
+
+        void StartCollection(int sku, bool annex)
+        {
+            if (workSku >= 0) caseSamples[workSku].gameObject.SetActive(false);
+            workSku=sku;
+            workAnnex=annex;
+            bool coastal=sku >= RetailShift.BaseSkuCount;
+            if (!caseSamples[sku])
+            {
+                caseSamples[sku]=ShopModels.Product(workCase,sku).transform;
+                caseSamples[sku].localPosition=new Vector3(0,.344f,0);
+            }
+            caseSamples[sku].gameObject.SetActive(true);
+            // Pick the actual product bay from the open side of its pallet.
+            int bay=sku % RetailShift.BaseSkuCount;
+            float pickupZ=DeliveryPosition.z+(bay-1)*.66f;
+            receivingApproach=new Vector3(coastal ? -4.55f : -2.85f, 0, StockroomAisle.z);
+            Vector3 rack=coastal ? CoastalShelfPosition : annex ? SecondShelfPosition : ShelfPosition;
+            shelfFace=rack + Vector3.back * .76f;
+            workPoint=0;
+            workPoints=0;
+            workPath[workPoints++]=receivingApproach;
+            workPath[workPoints++]=new Vector3(receivingApproach.x,0,pickupZ);
+            restockPhase=RestockPhase.Collecting;
+        }
+
+        bool RearRack => workAnnex || workSku >= RetailShift.BaseSkuCount;
+
+        void StartShelfTrip()
+        {
+            workPoint=0;
+            workPoints=0;
+            workPath[workPoints++]=receivingApproach;
+            // Go around the west end of the pantry before turning onto the rear fixtures.
+            if (RearRack)
+            {
+                workPath[workPoints++]=StockroomAisle;
+                workPath[workPoints++]=RearAisle;
+            }
+            workPath[workPoints++]=shelfFace;
+            restockPhase=RestockPhase.Carrying;
+        }
+
+        void StartReturnTrip()
+        {
+            workPoint=0;
+            workPoints=0;
+            if (RearRack) workPath[workPoints++]=RearAisle;
+            workPath[workPoints++]=StockroomAisle;
+            restockPhase=RestockPhase.Returning;
+        }
+
+        bool FollowWorkPath(bool carrying,float dt)
+        {
+            if (WalkTo(workPath[workPoint],carrying,dt)) workPoint++;
+            return workPoint == workPoints;
         }
 
         bool WalkTo(Vector3 target, bool carrying, float dt)
