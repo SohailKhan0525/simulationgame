@@ -1,6 +1,6 @@
 # Qofeno Simulation for Android
 
-Run Harbor Market on the quay. Carry cartons from receiving, stock the shelves, scan a shopper’s purchase and accept card payment. Use the shop computer to order another case before the next customer arrives. Qofeno is built with Unity 6 and C# for ARM64 Android phones.
+Run Harbor Market on the quay. Price groceries, build a six-product range, serve cash and card customers, and hire a stockroom assistant. The office tracks each trading day and your progress toward a supply contract. Qofeno is built with Unity 6 and C# for ARM64 Android phones.
 
 ## Download and install
 

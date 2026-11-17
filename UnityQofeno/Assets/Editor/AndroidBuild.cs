@@ -75,6 +75,11 @@ namespace Qofeno.Editor
                 throw new BuildFailedException("MarketSurface.mat must reference " + SurfaceShaderPath + ".");
             if (ShaderUtil.ShaderHasError(shader))
                 throw new BuildFailedException("The Harbor surface shader has compiler errors. See the shader import log.");
+            foreach (string path in new[] {
+                "Assets/Resources/HarborMaterials/harbor-provision-prints.png",
+                "Assets/Resources/ShopModels/coastal-prints.png" })
+                if (!AssetDatabase.LoadAssetAtPath<Texture2D>(path))
+                    throw new BuildFailedException("Missing Harbor print artwork at " + path);
         }
     }
 }
