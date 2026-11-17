@@ -7,12 +7,12 @@ PlayerSettings:
   productGUID: 174bf3932ee142c195922ca065a96cbd
   companyName: Qofeno
   productName: Qofeno Harbor Market
-  bundleVersion: 0.1.2
+  bundleVersion: 0.1.3
   applicationIdentifier:
     Android: com.qofeno.simulation.unity
     Standalone: com.qofeno.simulation.unity
   overrideDefaultApplicationIdentifier: 1
-  AndroidBundleVersionCode: 3
+  AndroidBundleVersionCode: 4
   AndroidMinSdkVersion: 25
   AndroidTargetSdkVersion: 0
   AndroidTargetArchitectures: 10

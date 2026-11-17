@@ -5,14 +5,12 @@ namespace Qofeno
     public static partial class ShopModels
     {
         /// <summary>The lower third of the modeled checkout screen, facing the customer at -Z.</summary>
-        public static TextMesh CreateTillReadout(Transform checkout)
+        public static TextMesh CreateTillReadout(Transform checkout, HarborBlock block)
         {
             var result = new GameObject("Register amount").AddComponent<TextMesh>();
             result.transform.SetParent(checkout, false);
             result.transform.localPosition = V(.51f, 1.184f, .1215f);
-            var font = Resources.Load<Font>("ShopType/BarlowCondensed-SemiBold");
-            result.font = font;
-            result.GetComponent<MeshRenderer>().sharedMaterial = font.material;
+            block.ApplyWorldFont(result);
             result.fontSize = 64;
             result.characterSize = .008f;
             result.anchor = TextAnchor.MiddleCenter;

@@ -54,6 +54,7 @@ namespace Qofeno.Editor
     // Runs for both the Unity Cloud target and the local Android build command.
     sealed class HarborStartupCheck : IProcessSceneWithReport
     {
+        internal const string SurfaceShaderPath = "Assets/Qofeno/HarborSurface.shader";
         public int callbackOrder => 0;
 
         public void OnProcessScene(Scene scene, BuildReport report)
@@ -69,8 +70,11 @@ namespace Qofeno.Editor
                 throw new BuildFailedException("Harbor needs exactly one enabled MarketSession at launch.");
 
             var surface = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/MarketSurface.mat");
-            if (!surface || !surface.shader || surface.shader.name != "Standard")
-                throw new BuildFailedException("Harbor's packaged MarketSurface material needs the Standard shader.");
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(SurfaceShaderPath);
+            if (!surface || !shader || surface.shader != shader)
+                throw new BuildFailedException("MarketSurface.mat must reference " + SurfaceShaderPath + ".");
+            if (ShaderUtil.ShaderHasError(shader))
+                throw new BuildFailedException("The Harbor surface shader has compiler errors. See the shader import log.");
         }
     }
 }

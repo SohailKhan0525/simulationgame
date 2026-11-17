@@ -100,7 +100,7 @@ namespace Qofeno
             block.Build(minutes / 60);
             shelf = Make(ShopModels.Shelf, HarborBlock.ShelfPosition);
             checkout = Make(ShopModels.Checkout, HarborBlock.CheckoutPosition);
-            tillReadout = ShopModels.CreateTillReadout(checkout);
+            tillReadout = ShopModels.CreateTillReadout(checkout, block);
             Obstacle(shelf, new Vector3(0, .83f, .04f), new Vector3(1.78f, 1.66f, .57f));
             Obstacle(checkout, new Vector3(0, .48f, .03f), new Vector3(2.36f, .96f, .73f));
             for (int sku = 0; sku < RetailShift.SkuCount; sku++)

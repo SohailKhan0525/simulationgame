@@ -264,7 +264,6 @@ namespace Qofeno
                 var mat = CreateSurfaceMaterial("Harbor enamel and paper");
                 mat.mainTexture = Resources.Load<Texture2D>("ShopModels/harbor-prints");
                 if(mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness",.20f);
-                mat.enableInstancing = true;
                 return mat;
             }
         }
