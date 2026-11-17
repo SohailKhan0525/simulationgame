@@ -24,7 +24,7 @@ namespace Qofeno.Editor
 
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.qofeno.simulation.unity");
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
-            PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+            PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64 | AndroidArchitecture.X86_64;
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.AutoRotation;
             PlayerSettings.allowedAutorotateToPortrait = false;
