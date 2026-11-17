@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace Qofeno
 {
@@ -17,7 +18,7 @@ namespace Qofeno
                 return "harbor-market.shift.v1";
             }
         }
-        enum Station { None, Shelf, Tea, Cocoa, Soap, Checkout, Desk }
+        enum Station { None, Shelf, Annex, CoastalShelf, Checkout, Desk, Tea, Cocoa, Soap, Oats, Coffee, Tomatoes }
         enum Visit { Between, Entering, ToTill, Waiting, Leaving }
 
         [Serializable]
@@ -26,6 +27,8 @@ namespace Qofeno
             public RetailShift.Snapshot shift;
             public float minutes;
             public int day;
+            public int businessDay, reportDay, visitorNumber;
+            public HarborQueue.Snapshot queue;
             public bool hasView;
             public Vector3 position;
             public float yaw, pitch;
@@ -34,7 +37,12 @@ namespace Qofeno
         static readonly Vector3 Outside = new Vector3(0, 0, -3.85f);
         static readonly Vector3 Aisle = new Vector3(-.15f, 0, 1.35f);
         static readonly Vector3 EndOfTill = new Vector3(.25f, 0, 2.98f);
-        readonly Transform[] stock = new Transform[RetailShift.SkuCount * RetailShift.ShelfCapacity];
+        static readonly Vector3 CoastalShelfPosition = new Vector3(-3.1f, 0, 4.12f);
+        const int SlotsPerFixture = RetailShift.BaseSkuCount * RetailShift.ShelfCapacity;
+        readonly Transform[] stock = new Transform[SlotsPerFixture * 3];
+        readonly Transform[] belt = new Transform[RetailShift.MaxBasket];
+        readonly int[] beltSkus = new int[RetailShift.MaxBasket];
+        readonly int[] shelfPrices = new int[RetailShift.SkuCount];
         readonly Transform[] cartons = new Transform[RetailShift.SkuCount];
         readonly Vector3[] receiving = new Vector3[RetailShift.SkuCount];
         readonly string[] names = new string[RetailShift.SkuCount];
@@ -43,19 +51,25 @@ namespace Qofeno
         HarborBlock block;
         FirstPersonWalker controls;
         ShopInterface ui;
-        Transform shelf, checkout, shopper, inHand, onBelt;
+        Transform shelf, secondShelf, coastalShelf, checkout, shopper, inHand;
+        HarborQueue waitingLine;
+        HarborQueue.Snapshot savedQueue;
+        int tapFinger = -1;
+        Vector2 tapOrigin;
+        TillCashDrawer drawer;
         MarketAudio audioCues;
         TextMesh tillReadout;
         ShopModels.WalkCycle gait;
         float stride, paidUntil;
         int lastPayment;
-        float minutes = 17 * 60 + 20, arrivalDelay = 9, hudTimer, saveTimer;
+        float minutes = RetailShift.OpeningMinute, arrivalDelay = 9, hudTimer, saveTimer;
         Vector3 startPosition = HarborBlock.Spawn;
         float startYaw, startPitch = 5;
-        int day = 1, routeIndex, routeCount, beltSku = -1, cartonSku = -1, nextPreference;
+        int day = 1, businessDay = 1, reportDay, visitorNumber, routeIndex, routeCount, cartonSku = -1, nextPreference;
         Visit visit;
         bool openingDesk;
         bool Trading => RetailShift.IsTradingAt(minutes);
+        bool CashTender => Shift.ReceiptCount % 2 == 0;
         Station focus;
         public RetailShift Shift { get; private set; }
         public ShopInterface Interface => ui;
@@ -83,8 +97,11 @@ namespace Qofeno
                 ui.BuildControls();
                 BuildMarket();
                 ui.Configure(Interact, Order, LeaveDesk);
+                ui.ConfigureManagement(Shift, OfficeChanged, () => businessDay);
+                drawer = gameObject.AddComponent<TillCashDrawer>();
                 ui.SetStartupMessage(null);
                 IsReady = true;
+                if (reportDay > 0) ShowReport();
             }
             catch (Exception error)
             {
@@ -98,10 +115,9 @@ namespace Qofeno
         {
             block = gameObject.AddComponent<HarborBlock>();
             block.Build(minutes / 60);
-            shelf = Make(ShopModels.Shelf, HarborBlock.ShelfPosition);
+            shelf = BuildShelf(HarborBlock.ShelfPosition, 0);
             checkout = Make(ShopModels.Checkout, HarborBlock.CheckoutPosition);
             tillReadout = ShopModels.CreateTillReadout(checkout, block);
-            Obstacle(shelf, new Vector3(0, .83f, .04f), new Vector3(1.78f, 1.66f, .57f));
             Obstacle(checkout, new Vector3(0, .48f, .03f), new Vector3(2.36f, .96f, .73f));
             for (int sku = 0; sku < RetailShift.SkuCount; sku++)
             {
@@ -109,22 +125,21 @@ namespace Qofeno
                 sizes[sku] = RetailShift.CaseSize(sku);
                 costs[sku] = RetailShift.CaseCost(sku);
                 // Cases stand along the receiving wall, each with a separate focus target.
-                receiving[sku] = HarborBlock.DeliveryPosition + Vector3.forward * (sku - 1) * .66f;
+                int bay = sku % RetailShift.BaseSkuCount;
+                float offset = sku < RetailShift.BaseSkuCount ? 0 : -.70f;
+                receiving[sku] = HarborBlock.DeliveryPosition + new Vector3(offset, 0, (bay - 1) * .66f);
                 cartons[sku] = Make(ShopModels.Carton, receiving[sku]);
                 cartons[sku].name = names[sku] + " receiving case";
                 Obstacle(cartons[sku], new Vector3(0, .16f, 0), new Vector3(.51f, .32f, .46f));
                 var sample = ShopModels.Product(cartons[sku], sku).transform;
                 sample.localPosition = new Vector3(0, .344f, 0);
-                for (int n = 0; n < RetailShift.ShelfCapacity; n++)
-                {
-                    int slot = sku * RetailShift.ShelfCapacity + n;
-                    stock[slot] = ShopModels.Product(shelf, sku).transform;
-                    stock[slot].localPosition = ShopModels.ShelfSlot(slot);
-                }
             }
             shopper = Make(ShopModels.Customer, Outside);
             gait = ShopModels.ArticulateCustomer(shopper);
+            gait.SetAppearance(visitorNumber);
             shopper.gameObject.SetActive(false);
+            waitingLine = HarborQueue.Build(transform);
+            waitingLine.Restore(savedQueue);
             audioCues = gameObject.AddComponent<MarketAudio>();
             if (Shift.CustomerSku >= 0)
             {
@@ -136,6 +151,21 @@ namespace Qofeno
             RefreshModels();
             UpdateHud();
             if (!PlayerPrefs.HasKey(SaveKey)) ui.Notify("Lift a tea carton at receiving, on your left");
+        }
+
+        Transform BuildShelf(Vector3 position, int index)
+        {
+            var fixture = Make(ShopModels.Shelf, position);
+            if (index != 0) fixture.name = "Annex shelf";
+            Obstacle(fixture, new Vector3(0, .83f, .04f), new Vector3(1.78f, 1.66f, .57f));
+            for (int slot = 0; slot < SlotsPerFixture; slot++)
+            {
+                int sku = slot / RetailShift.ShelfCapacity + (index == 2 ? RetailShift.BaseSkuCount : 0);
+                var item = ShopModels.Product(fixture, sku).transform;
+                item.localPosition = ShopModels.ShelfSlot(slot);
+                stock[index * SlotsPerFixture + slot] = item;
+            }
+            return fixture;
         }
 
         Transform Make(Func<Transform, GameObject> factory, Vector3 position)
@@ -155,15 +185,38 @@ namespace Qofeno
         void Update()
         {
             if (!IsReady) return;
+            if (drawer.IsOpen || ui.ReportOpen)
+            {
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    if (drawer.IsOpen) drawer.Close();
+                    else ui.DismissDayReport();
+                }
+                return;
+            }
             float dt = Mathf.Min(Time.deltaTime, .15f);
             minutes += dt * 2f;
             if (minutes >= 1440) { minutes -= 1440; day++; }
+            if (day > businessDay && minutes >= RetailShift.OpeningMinute &&
+                !ui.DeskOpen && !openingDesk && Shift.CustomerSku < 0 && !waitingLine.Occupied)
+            {
+                CloseBooks(day);
+                return;
+            }
             block.SetHour(minutes / 60);
             controls.Tick(dt, ui.DeskOpen);
             if (openingDesk && controls.AtDesk) ShowOrderPad();
+            bool busyTill = visit == Visit.ToTill || visit == Visit.Waiting;
+            waitingLine.Tick(dt, Trading && AvailableSku() >= 0, busyTill, NextVisitor());
             AdvanceVisit(dt);
-            if (onBelt != null && Shift.Scanned)
-                onBelt.localPosition = Vector3.MoveTowards(onBelt.localPosition, ShopModels.ScannerSpot, dt * 1.15f);
+            if (!ui.DeskOpen && !openingDesk) TapGroceries();
+            for (int i = 0; i < Shift.ScannedCount; i++)
+                if (belt[i]) belt[i].localPosition = Vector3.MoveTowards(belt[i].localPosition, BagSpot(i), dt * 1.35f);
+            if (Shift.HasStocker && block.TickStocker(true, StockerHasWork(), dt) && Shift.RestockOne() >= 0)
+            {
+                RefreshModels();
+                SaveShift();
+            }
             hudTimer -= dt;
             if (hudTimer <= 0) { UpdateHud(); hudTimer = .1f; }
             if (Input.GetKeyDown(KeyCode.Escape) && ui.DeskOpen) LeaveDesk();
@@ -177,12 +230,29 @@ namespace Qofeno
             if (visit == Visit.Waiting) return;
             if (visit == Visit.Between)
             {
+                if (waitingLine.TryTake(out var position, out int number))
+                {
+                    visitorNumber = number;
+                    shopper.gameObject.SetActive(true);
+                    shopper.position = position;
+                    shopper.rotation = Quaternion.identity;
+                    gait.SetAppearance(number);
+                    if (ReserveBasket()) SetRoute(Visit.ToTill, HarborBlock.CustomerPosition);
+                    else WalkOut();
+                    SaveShift();
+                    return;
+                }
+                if (waitingLine.Occupied) return;
                 if (!Trading) return;
                 arrivalDelay -= dt;
                 if (arrivalDelay > 0 || AvailableSku() < 0) return;
                 shopper.gameObject.SetActive(true);
                 shopper.position = Outside;
-                SetRoute(Visit.Entering, new Vector3(0, 0, -.8f), HarborBlock.ShelfPosition + Vector3.back * .8f);
+                visitorNumber = NextVisitor();
+                gait.SetAppearance(visitorNumber);
+                if (AvailableSku() >= RetailShift.BaseSkuCount)
+                    SetRoute(Visit.Entering, new Vector3(0, 0, -.8f), Aisle, new Vector3(-.7f,0,3.25f), CoastalShelfPosition + Vector3.back * .75f);
+                else SetRoute(Visit.Entering, new Vector3(0, 0, -.8f), HarborBlock.ShelfPosition + Vector3.back * .8f);
                 return;
             }
 
@@ -199,14 +269,17 @@ namespace Qofeno
             if (visit == Visit.Entering)
             {
                 int sku = AvailableSku();
-                if (sku >= 0 && Shift.BeginSale(sku))
+                if (ReserveBasket())
                 {
-                    nextPreference = (sku + 1) % RetailShift.SkuCount;
-                    SetRoute(Visit.ToTill, Aisle, EndOfTill, HarborBlock.CustomerPosition);
-                    RefreshModels();
-                    SaveShift();
+                    if (shopper.position.z > 3)
+                        SetRoute(Visit.ToTill, new Vector3(-.7f,0,3.25f), EndOfTill, HarborBlock.CustomerPosition);
+                    else SetRoute(Visit.ToTill, Aisle, EndOfTill, HarborBlock.CustomerPosition);
                 }
-                else WalkOut();
+                else
+                {
+                    if (sku >= 0) ui.Notify("Shopper left · check your shelf prices");
+                    SetRoute(Visit.Leaving, new Vector3(0, 0, -.8f), Outside);
+                }
             }
             else if (visit == Visit.ToTill)
             {
@@ -234,6 +307,21 @@ namespace Qofeno
 
         void WalkOut() => SetRoute(Visit.Leaving, EndOfTill, Aisle, new Vector3(0, 0, -.8f), Outside);
 
+        static bool IsShelf(Station station) =>
+            station == Station.Shelf || station == Station.Annex || station == Station.CoastalShelf;
+
+        int NextVisitor() => visitorNumber == int.MaxValue ? 1 : visitorNumber + 1;
+
+        bool ReserveBasket()
+        {
+            int sku = AvailableSku();
+            if (sku < 0 || !Shift.BeginBasket(sku, unchecked(visitorNumber * 397 + day * 17))) return false;
+            nextPreference = (sku + 1) % RetailShift.SkuCount;
+            RefreshModels();
+            SaveShift();
+            return true;
+        }
+
         int AvailableSku()
         {
             for (int i = 0; i < RetailShift.SkuCount; i++)
@@ -249,6 +337,11 @@ namespace Qofeno
             Station best = Station.None;
             float score = float.MaxValue;
             Score(Station.Shelf, HarborBlock.ShelfPosition + Vector3.up * 1.08f, 2.75f, ref best, ref score);
+            if (secondShelf)
+            {
+                Score(Station.Annex, secondShelf.position + Vector3.up * 1.08f, 2.75f, ref best, ref score);
+                Score(Station.CoastalShelf, coastalShelf.position + Vector3.up * 1.08f, 2.75f, ref best, ref score);
+            }
             Score(Station.Checkout, HarborBlock.CheckoutPosition + Vector3.up * 1.0f, 2.65f, ref best, ref score);
             Score(Station.Desk, HarborBlock.DeskPosition + Vector3.up * 1.05f, 2.45f, ref best, ref score);
             for (int sku = 0; sku < RetailShift.SkuCount; sku++)
@@ -273,12 +366,15 @@ namespace Qofeno
         string ActionFor(Station station)
         {
             if (station == Station.Desk) return "Use computer";
-            if (station == Station.Shelf && Shift.HeldSku >= 0 && Shift.GetShelf(Shift.HeldSku) < RetailShift.ShelfCapacity)
-                return "Stock shelf";
+            if (IsShelf(station) && Shift.HeldSku >= 0 && Shift.GetShelf(Shift.HeldSku) < Shift.CapacityFor(Shift.HeldSku))
+            {
+                bool coastal = Shift.HeldSku >= RetailShift.BaseSkuCount;
+                if (coastal == (station == Station.CoastalShelf)) return "Stock shelf";
+            }
             if (station == Station.Checkout)
             {
-                if (visit == Visit.Waiting) return Shift.Scanned ? "Take payment" : "Scan item";
-                if (visit == Visit.Between && !Trading) return "Open at 08:00";
+                if (visit == Visit.Waiting) return Shift.Scanned ? (CashTender ? "Count change" : "Take card") : "Scan item";
+                if (visit == Visit.Between && !Trading && !waitingLine.Occupied) return "Open at 08:00";
             }
             int sku = (int)station - (int)Station.Tea;
             if (sku >= 0 && sku < RetailShift.SkuCount)
@@ -294,10 +390,14 @@ namespace Qofeno
             switch (station)
             {
                 case Station.Checkout:
-                    return visit == Visit.Waiting ? names[Shift.CustomerSku] + "   " + Money(RetailShift.UnitPrice(Shift.CustomerSku)) : Trading ? "Checkout" : "Shop closed";
+                    if (visit != Visit.Waiting) return Trading ? "Checkout" : "Shop closed";
+                    if (Shift.Scanned) return "Basket total   " + Money(Shift.BasketTotal);
+                    return (Shift.ScannedCount + 1) + "/" + Shift.BasketCount + "  " + names[Shift.CustomerSku] + "  " + Money(Shift.CurrentItemPrice);
                 case Station.Shelf:
+                case Station.Annex:
+                case Station.CoastalShelf:
                     if (Shift.HeldSku >= 0)
-                        return names[Shift.HeldSku] + "   " + Shift.GetShelf(Shift.HeldSku) + " / " + RetailShift.ShelfCapacity;
+                        return names[Shift.HeldSku] + "   " + Shift.GetShelf(Shift.HeldSku) + " / " + Shift.CapacityFor(Shift.HeldSku);
                     return "Grocery shelf";
                 case Station.Desk: return "Supplier desk";
                 case Station.None: return "";
@@ -309,7 +409,7 @@ namespace Qofeno
 
         public void Interact()
         {
-            if (!IsReady || ui.DeskOpen || openingDesk) return;
+            if (!IsReady || ui.DeskOpen || openingDesk || drawer.IsOpen) return;
             focus = FindStation();
             if (ActionFor(focus).Length == 0) return;
             if (focus == Station.Desk) { OpenDesk(); return; }
@@ -319,14 +419,12 @@ namespace Qofeno
                 minutes = RetailShift.OpeningMinute;
                 arrivalDelay = 3;
                 block.SetHour(8);
-                ui.Notify("Open for the day");
-                UpdateHud();
-                SaveShift();
+                CloseBooks(day);
                 return;
             }
             bool done;
             string notice;
-            if (focus == Station.Shelf)
+            if (IsShelf(focus))
             {
                 int sku = Shift.HeldSku, before = Shift.HeldUnits;
                 done = Shift.Stock();
@@ -334,24 +432,16 @@ namespace Qofeno
             }
             else if (focus == Station.Checkout)
             {
-                int sku = Shift.CustomerSku;
                 if (Shift.Scanned)
                 {
-                    done = Shift.Pay();
-                    notice = "Card approved   " + Money(RetailShift.UnitPrice(sku));
-                    if (done)
-                    {
-                        lastPayment = RetailShift.UnitPrice(sku);
-                        paidUntil = Time.unscaledTime + 2.5f;
-                        WalkOut();
-                        audioCues.Paid();
-                    }
+                    if (CashTender) drawer.Open(Shift.BasketTotal, TillCashDrawer.TenderFor(Shift.BasketTotal), SettleSale);
+                    else SettleSale();
+                    return;
                 }
                 else
                 {
-                    done = Shift.Scan();
-                    notice = names[sku] + "   " + Money(RetailShift.UnitPrice(sku));
-                    if (done) audioCues.Scan();
+                    ScanLine(Shift.ScannedCount);
+                    return;
                 }
             }
             else
@@ -405,6 +495,121 @@ namespace Qofeno
 
         public static string Money(int pence) => "£" + (pence / 100) + "." + (pence % 100).ToString("00");
 
+        void OfficeChanged()
+        {
+            RefreshModels();
+            UpdateHud();
+            SaveShift();
+        }
+
+        void SettleSale()
+        {
+            int total = Shift.BasketTotal;
+            bool cash = CashTender;
+            if (visit != Visit.Waiting || !Shift.Pay()) return;
+            lastPayment = total;
+            paidUntil = Time.unscaledTime + 2.5f;
+            WalkOut();
+            audioCues.Paid();
+            ui.Notify((cash ? "Cash received   " : "Card approved   ") + Money(total));
+            OfficeChanged();
+        }
+
+        // A short tap on a package scans it. Right-thumb drags still turn the camera.
+        void TapGroceries()
+        {
+            if (Input.touchCount == 0 || visit != Visit.Waiting || Shift.Scanned ||
+                Vector3.Distance(controls.View.position, checkout.position + Vector3.up) > 2.65f)
+            {
+                tapFinger = -1;
+                return;
+            }
+            for (int i = 0; i < Input.touchCount; i++)
+            {
+                var touch = Input.GetTouch(i);
+                if (touch.phase == TouchPhase.Began && touch.position.x > Screen.safeArea.center.x &&
+                    (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject(touch.fingerId)))
+                {
+                    tapFinger = touch.fingerId;
+                    tapOrigin = touch.position;
+                }
+                if (touch.fingerId != tapFinger) continue;
+                if (touch.phase == TouchPhase.Canceled || Vector2.Distance(touch.position, tapOrigin) > Screen.height * .023f)
+                {
+                    tapFinger = -1;
+                    continue;
+                }
+                if (touch.phase != TouchPhase.Ended) continue;
+                tapFinger = -1;
+                var ray = Camera.main.ScreenPointToRay(touch.position);
+                float nearest = 2.85f;
+                if (Physics.Raycast(ray, out var hit, nearest)) nearest = hit.distance;
+                int line = -1;
+                for (int j = Shift.ScannedCount; j < Shift.BasketCount; j++)
+                {
+                    if (!belt[j]) continue;
+                    var bounds = belt[j].GetComponent<MeshRenderer>().bounds;
+                    bounds.Expand(.045f);
+                    if (bounds.IntersectRay(ray, out float distance) && distance < nearest)
+                    {
+                        line = j;
+                        nearest = distance;
+                    }
+                }
+                if (line >= 0) ScanLine(line);
+            }
+        }
+
+        void ScanLine(int index)
+        {
+            int next = Shift.ScannedCount;
+            int sku = Shift.BasketSkuAt(index), price = Shift.BasketPriceAt(index);
+            if (visit != Visit.Waiting || !Shift.ScanAt(index)) return;
+            if (index != next)
+            {
+                var item = belt[index];
+                belt[index] = belt[next];
+                belt[next] = item;
+                beltSkus[index] = beltSkus[next];
+                beltSkus[next] = sku;
+            }
+            audioCues.Scan();
+            ui.Notify(names[sku] + "   " + Money(price));
+            OfficeChanged();
+        }
+
+        void CloseBooks(int nextDay)
+        {
+            if (nextDay > businessDay)
+            {
+                reportDay = businessDay;
+                Shift.CloseDay();
+                businessDay = nextDay;
+            }
+            UpdateHud();
+            SaveShift();
+            if (reportDay > 0) ShowReport();
+        }
+
+        void ShowReport()
+        {
+            ui.ShowDayReport(reportDay, () =>
+            {
+                reportDay = 0;
+                SaveShift();
+            });
+        }
+
+        bool StockerHasWork()
+        {
+            if (!Trading) return false;
+            for (int i = 0; i < RetailShift.SkuCount; i++)
+                if (Shift.GetDelivered(i) > 0 && Shift.GetShelf(i) < Shift.CapacityFor(i)) return true;
+            return false;
+        }
+
+        static Vector3 BagSpot(int index) => ShopModels.ScannerSpot + new Vector3(index * .16f, 0, index % 2 * .12f);
+
         void UpdateHud()
         {
             focus = FindStation();
@@ -414,17 +619,44 @@ namespace Qofeno
             ui.SetHud(clock, Money(Shift.Cash), Subject(focus), ActionFor(focus), held);
             string amount = paidUntil > Time.unscaledTime ? "PAID  " + Money(lastPayment) : Trading ? "READY" : "CLOSED";
             if (visit == Visit.Waiting)
-                amount = Shift.Scanned ? "TOTAL  " + Money(RetailShift.UnitPrice(Shift.CustomerSku)) : "NEXT ITEM";
+                amount = Shift.Scanned ? "TOTAL  " + Money(Shift.BasketTotal) :
+                    Shift.ScannedCount + "/" + Shift.BasketCount + "   " + Money(Shift.ScannedTotal);
             if (tillReadout.text != amount) tillReadout.text = amount;
         }
 
         void RefreshModels()
         {
+            bool newShelf = Shift.IsExpanded && !secondShelf;
+            if (newShelf)
+            {
+                block.SetReceivingExpanded(true);
+                secondShelf = BuildShelf(HarborBlock.SecondShelfPosition, 1);
+                coastalShelf = BuildShelf(CoastalShelfPosition, 2);
+                coastalShelf.name = "Coastal provisions";
+            }
+            bool priceChanged = false;
             for (int sku = 0; sku < RetailShift.SkuCount; sku++)
             {
                 cartons[sku].gameObject.SetActive(Shift.GetDelivered(sku) > 0);
+                priceChanged |= shelfPrices[sku] != Shift.Price(sku);
+                shelfPrices[sku] = Shift.Price(sku);
+                int units = Shift.GetShelf(sku);
                 for (int n = 0; n < RetailShift.ShelfCapacity; n++)
-                    stock[sku * RetailShift.ShelfCapacity + n].gameObject.SetActive(n < Shift.GetShelf(sku));
+                {
+                    int slot = sku % RetailShift.BaseSkuCount * RetailShift.ShelfCapacity + n;
+                    if (sku < RetailShift.BaseSkuCount)
+                    {
+                        stock[slot].gameObject.SetActive(n < units);
+                        if (secondShelf) stock[SlotsPerFixture + slot].gameObject.SetActive(RetailShift.ShelfCapacity + n < units);
+                    }
+                    else if (coastalShelf) stock[2 * SlotsPerFixture + slot].gameObject.SetActive(n < units);
+                }
+            }
+            if (priceChanged || newShelf)
+            {
+                block.UpdateShelfPrices(shelf, shelfPrices);
+                if (secondShelf) block.UpdateShelfPrices(secondShelf, shelfPrices);
+                if (coastalShelf) block.UpdateShelfPrices(coastalShelf, shelfPrices, RetailShift.BaseSkuCount);
             }
             if (cartonSku != Shift.HeldSku)
             {
@@ -440,24 +672,28 @@ namespace Qofeno
                     sample.localPosition = new Vector3(-.05f, .344f, 0);
                 }
             }
-            int visibleSku = visit == Visit.Waiting ? Shift.CustomerSku : -1;
-            if (beltSku != visibleSku)
+            for (int i = 0; i < belt.Length; i++)
             {
-                if (onBelt != null) Destroy(onBelt.gameObject);
-                onBelt = null;
-                beltSku = visibleSku;
-                if (beltSku >= 0)
+                int sku = visit == Visit.Waiting && i < Shift.BasketCount ? Shift.BasketSkuAt(i) : -1;
+                if (belt[i] && sku != beltSkus[i])
                 {
-                    onBelt = ShopModels.Product(checkout, beltSku).transform;
-                    onBelt.localPosition = Shift.Scanned ? ShopModels.ScannerSpot : ShopModels.BeltSpot;
+                    Destroy(belt[i].gameObject);
+                    belt[i] = null;
                 }
+                beltSkus[i] = sku;
+                if (sku < 0 || belt[i]) continue;
+                belt[i] = ShopModels.Product(checkout, sku).transform;
+                belt[i].localPosition = i < Shift.ScannedCount ? BagSpot(i) :
+                    ShopModels.BeltSpot + new Vector3(.24f * (1 - i), 0, (i % 2) * .1f);
             }
         }
 
         void SaveShift()
         {
             if (!IsReady) return;
-            var save = new Save { shift = Shift.Capture(), minutes = minutes, day = day };
+            var save = new Save { shift = Shift.Capture(), minutes = minutes, day = day,
+                businessDay = businessDay, reportDay = reportDay, visitorNumber = visitorNumber,
+                queue = waitingLine.Capture() };
             if (controls != null)
             {
                 save.position = controls.transform.position;
@@ -482,6 +718,11 @@ namespace Qofeno
                 if (save == null || save.day < 1 || !(save.minutes >= 0 && save.minutes < 1440)) return;
                 if (!RetailShift.TryRestore(save.shift, out var restored)) return;
                 Shift = restored; minutes = save.minutes; day = save.day;
+                businessDay = save.businessDay > 0 && save.businessDay <= day ? save.businessDay :
+                    Mathf.Max(1, day - (minutes < RetailShift.OpeningMinute ? 1 : 0));
+                reportDay = save.reportDay > 0 && save.reportDay < businessDay ? save.reportDay : 0;
+                visitorNumber = Mathf.Max(0, save.visitorNumber);
+                savedQueue = save.queue;
                 if (save.hasView && ValidPosition(save.position) &&
                     save.yaw >= 0 && save.yaw <= 360 && Mathf.Abs(save.pitch) <= 70)
                 {

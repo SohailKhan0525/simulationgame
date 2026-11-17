@@ -34,6 +34,7 @@ namespace Qofeno
 
         public static GameObject Product(Transform parent, int sku)
         {
+            if (sku >= RetailShift.BaseSkuCount) return CoastalProduct(parent, sku);
             if (sku < 0 || sku > 2) throw new ArgumentOutOfRangeException(nameof(sku));
             return Instance((Design)((int)Design.Tea + sku), parent);
         }
@@ -88,7 +89,7 @@ namespace Qofeno
                 float y=ShelfSlot(row*6).y;
                 m.Box(V(0,y-.019f,-.006f),V(1.72f,.038f,.53f),Ink.Bone,.014f);
                 m.Box(V(0,y-.03f,-.272f),V(1.73f,.057f,.028f),Ink.Pine,.009f);
-                m.Front(V(-.68f,y-.03f,-.288f),.16f,.045f,PrintAtlas.Tickets[row]);
+                m.Box(V(-.49f,y-.036f,-.291f),V(.55f,.095f,.009f),Ink.Bone,.003f);
             }
             m.Box(V(0,1.63f,.181f),V(1.76f,.18f,.12f),Ink.Pine,.024f);
             m.Front(V(0,1.63f,.119f),1.05f,.131f,PrintAtlas.Header);
@@ -164,46 +165,77 @@ namespace Qofeno
             m.Box(V(.957f,.984f,.116f),V(.095f,.004f,.052f),Ink.Milk);
         }
 
-        private static void BuildCustomer(Builder m)
+        private static void BuildCustomer(Builder m, int appearance = 0)
         {
+            bool staff = appearance == 3;
+            Ink jacket = staff ? Ink.Bone : appearance == 1 ? Ink.Jam : appearance == 2 ? Ink.Sage : Ink.Navy;
+            Ink trousers = staff ? Ink.Slate : appearance == 2 ? Ink.Leather : Ink.Denim;
+            Ink skin = appearance == 1 ? Ink.Leather : Ink.Skin;
             // Wool dock jacket, ribbed cuffs, straight denim and an ochre watch cap.
             for(int s=-1;s<=1;s+=2)
             {
                 m.Part(s<0 ? BodyPart.LeftShin : BodyPart.RightShin);
                 m.Box(V(s*.113f,.076f,-.039f),V(.147f,.15f,.286f),Ink.Leather,.031f);
                 m.Box(V(s*.113f,.021f,-.040f),V(.153f,.042f,.294f),Ink.Rubber,.012f);
-                m.Taper(V(s*.107f,.13f,.002f),.065f,.078f,V(s*.106f,.462f,0),.081f,.09f,Ink.Denim);
+                m.Taper(V(s*.107f,.13f,.002f),.065f,.078f,V(s*.106f,.462f,0),.081f,.09f,trousers);
                 m.Part(s<0 ? BodyPart.LeftThigh : BodyPart.RightThigh);
-                m.Taper(V(s*.106f,.451f,0),.081f,.09f,V(s*.105f,.82f,0),.096f,.105f,Ink.Denim);
+                m.Taper(V(s*.106f,.451f,0),.081f,.09f,V(s*.105f,.82f,0),.096f,.105f,trousers);
                 m.Part(s<0 ? BodyPart.LeftArm : BodyPart.RightArm);
-                m.Taper(V(s*.213f,1.321f,.006f),.081f,.087f,V(s*.259f,1.03f,-.024f),.067f,.07f,Ink.Navy);
-                m.Taper(V(s*.259f,1.035f,-.024f),.067f,.07f,V(s*.258f,.867f,-.07f),.052f,.051f,Ink.Navy);
+                m.Taper(V(s*.213f,1.321f,.006f),.081f,.087f,V(s*.259f,1.03f,-.024f),.067f,.07f,jacket);
+                m.Taper(V(s*.259f,1.035f,-.024f),.067f,.07f,V(s*.258f,.867f,-.07f),.052f,.051f,jacket);
                 m.Taper(V(s*.258f,.908f,-.061f),.058f,.06f,V(s*.258f,.853f,-.07f),.05f,.056f,Ink.Slate);
-                m.Taper(V(s*.258f,.854f,-.07f),.046f,.048f,V(s*.256f,.776f,-.084f),.037f,.038f,Ink.Skin);
+                m.Taper(V(s*.258f,.854f,-.07f),.046f,.048f,V(s*.256f,.776f,-.084f),.037f,.038f,skin);
             }
             m.Part(BodyPart.Torso);
-            m.Taper(V(0,.733f,0),.172f,.11f,V(0,.91f,0),.176f,.119f,Ink.Denim);
-            m.Taper(V(0,.81f,-.002f),.183f,.124f,V(0,1.24f,0),.213f,.139f,Ink.Navy);
-            m.Taper(V(0,1.238f,0),.213f,.139f,V(0,1.362f,0),.151f,.111f,Ink.Navy);
+            m.Taper(V(0,.733f,0),.172f,.11f,V(0,.91f,0),.176f,.119f,trousers);
+            m.Taper(V(0,.81f,-.002f),.183f,.124f,V(0,1.24f,0),.213f,.139f,jacket);
+            m.Taper(V(0,1.238f,0),.213f,.139f,V(0,1.362f,0),.151f,.111f,jacket);
             m.Box(V(0,1.076f,-.125f),V(.014f,.43f,.014f),Ink.Slate,.004f);
             m.Box(V(-.105f,1.18f,-.127f),V(.097f,.070f,.009f),Ink.Slate,.007f);
-            m.Cylinder(V(0,1.378f,-.015f),.065f,.065f,.105f,Ink.Skin,10);
+            m.Cylinder(V(0,1.378f,-.015f),.065f,.065f,.105f,skin,10);
             m.Cylinder(V(0,1.353f,-.011f),.091f,.091f,.040f,Ink.Bone,10);
             m.Taper(V(-.082f,1.329f,-.071f),.043f,.026f,V(-.034f,1.275f,-.124f),.021f,.017f,Ink.Slate);
             m.Taper(V(.082f,1.329f,-.071f),.043f,.026f,V(.034f,1.275f,-.124f),.021f,.017f,Ink.Slate);
-            m.Taper(V(0,1.397f,-.027f),.064f,.077f,V(0,1.475f,-.019f),.092f,.10f,Ink.Skin);
-            m.Taper(V(0,1.473f,-.019f),.092f,.10f,V(0,1.602f,-.014f),.096f,.099f,Ink.Skin);
-            m.Box(V(0,1.491f,-.117f),V(.037f,.046f,.032f),Ink.Skin,.011f);
+            m.Taper(V(0,1.397f,-.027f),.064f,.077f,V(0,1.475f,-.019f),.092f,.10f,skin);
+            m.Taper(V(0,1.473f,-.019f),.092f,.10f,V(0,1.602f,-.014f),.096f,.099f,skin);
+            m.Box(V(0,1.491f,-.117f),V(.037f,.046f,.032f),skin,.011f);
             foreach(float x in new[]{-.043f,.043f})
             {
                 m.Box(V(x,1.535f,-.114f),V(.025f,.009f,.007f),Ink.Hair,.001f);
                 m.Box(V(x,1.552f,-.112f),V(.031f,.008f,.008f),Ink.Hair,.002f);
-                m.Cylinder(V(x*2.14f,1.50f,-.007f),.014f,.023f,.042f,Ink.Skin,8);
+                m.Cylinder(V(x*2.14f,1.50f,-.007f),.014f,.023f,.042f,skin,8);
             }
             m.Box(V(0,1.455f,-.113f),V(.031f,.005f,.003f),Ink.Leather,.001f);
-            m.Cylinder(V(0,1.595f,-.014f),.106f,.112f,.061f,Ink.Orange,12);
-            m.Taper(V(0,1.612f,-.01f),.102f,.108f,V(-.012f,1.688f,.008f),.067f,.065f,Ink.Brick);
-            m.Cylinder(V(-.012f,1.687f,.008f),.067f,.065f,.009f,Ink.Brick,12);
+            if (staff)
+            {
+                // Woven bib, brass snaps, waist tie, patch pockets and a short-billed shop cap.
+                m.Taper(V(0,.685f,-.118f),.169f,.025f,V(0,1.22f,-.131f),.123f,.018f,Ink.Pine);
+                foreach (float x in new[] {-.095f,.095f})
+                {
+                    m.Taper(V(x,1.209f,-.137f),.018f,.013f,V(x,1.328f,-.108f),.016f,.012f,Ink.Pine);
+                    m.Box(V(x,1.194f,-.156f),V(.015f,.015f,.005f),Ink.Honey);
+                }
+                m.Box(V(0,.92f,-.147f),V(.34f,.032f,.013f),Ink.Sage,.004f);
+                m.Box(V(.068f,.819f,-.150f),V(.104f,.098f,.009f),Ink.Sage,.004f);
+                m.Box(V(-.056f,1.134f,-.151f),V(.067f,.030f,.008f),Ink.Bone,.003f);
+                m.Cylinder(V(0,1.604f,-.004f),.111f,.111f,.089f,Ink.Pine,16);
+                m.Box(V(0,1.577f,-.096f),V(.18f,.015f,.116f),Ink.Sage,.026f);
+            }
+            else if (appearance == 1)
+            {
+                m.Cylinder(V(0,1.59f,-.002f),.104f,.109f,.086f,Ink.Hair,12);
+                m.Taper(V(.005f,1.43f,.097f),.062f,.061f,V(.005f,1.59f,.083f),.095f,.079f,Ink.Hair);
+                m.Cylinder(V(0,1.392f,-.003f),.104f,.10f,.067f,Ink.Honey,14);
+                m.Box(V(.084f,1.266f,-.129f),V(.057f,.196f,.015f),Ink.Honey,.009f);
+            }
+            else
+            {
+                Ink band = appearance == 2 ? Ink.Mist : Ink.Orange;
+                Ink crown = appearance == 2 ? Ink.Slate : Ink.Brick;
+                m.Cylinder(V(0,1.595f,-.014f),.106f,.112f,.061f,band,12);
+                m.Taper(V(0,1.612f,-.01f),.102f,.108f,V(-.012f,1.688f,.008f),.067f,.065f,crown);
+                m.Cylinder(V(-.012f,1.687f,.008f),.067f,.065f,.009f,crown,12);
+            }
         }
 
         private static void BuildCar(Builder m)

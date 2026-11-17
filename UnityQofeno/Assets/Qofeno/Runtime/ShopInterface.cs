@@ -7,11 +7,16 @@ using UnityEngine.UI;
 namespace Qofeno
 {
     /// <summary>The player's heads-up display and the market's wholesale ordering terminal.</summary>
-    public sealed class ShopInterface : MonoBehaviour
+    public sealed partial class ShopInterface : MonoBehaviour
     {
-        const int SkuCount = 3;
+        const int SkuCount = RetailShift.SkuCount;
         const float PaperWidth = 870f;
         const float PaperHeight = 472f;
+        static readonly Color32[] PackColors =
+        {
+            new Color32(39, 68, 55, 255), new Color32(122, 65, 45, 255), new Color32(188, 193, 147, 255),
+            new Color32(192, 151, 77, 255), new Color32(44, 70, 65, 255), new Color32(172, 62, 41, 255)
+        };
         static readonly Color Ink = new Color32(28, 49, 44, 255);
         static readonly Color Muted = new Color32(71, 93, 80, 255);
         static readonly Color Paper = new Color32(248, 246, 232, 255);
@@ -119,31 +124,34 @@ namespace Qofeno
             int[] stockCounts, int availableCents)
         {
             if (itemNames == null || sizes == null || casePricesCents == null || stockCounts == null ||
-                itemNames.Length < SkuCount || sizes.Length < SkuCount || casePricesCents.Length < SkuCount ||
-                stockCounts.Length < SkuCount)
+                itemNames.Length < RetailShift.BaseSkuCount || sizes.Length != itemNames.Length ||
+                casePricesCents.Length != itemNames.Length || stockCounts.Length != itemNames.Length)
                 throw new ArgumentException("The wholesale terminal requires a name, case size, price and stock count for each SKU.");
             available = Math.Max(0, availableCents);
             submitting = false;
+            coastalRange = false;
+            suppliedSkus = Math.Min(itemNames.Length, SkuCount);
             fundsText.text = balance ?? Money(available);
             for (var i = 0; i < SkuCount; i++)
             {
                 cart[i] = 0;
-                caseSizes[i] = Math.Max(1, sizes[i]);
-                casePrices[i] = Math.Max(0, casePricesCents[i]);
-                productNames[i].text = itemNames[i];
-                stockLabels[i].text = stockCounts[i] + " in store";
+                caseSizes[i] = i < suppliedSkus ? Math.Max(1, sizes[i]) : RetailShift.CaseSize(i);
+                casePrices[i] = i < suppliedSkus ? Math.Max(0, casePricesCents[i]) : RetailShift.CaseCost(i);
+                productNames[i].text = i < suppliedSkus ? itemNames[i] : RetailShift.NameOf(i);
+                stockLabels[i].text = i < suppliedSkus ? stockCounts[i] + " in store" : "Requires second shelf";
                 caseLabels[i].text = caseSizes[i] + " units / case";
                 prices[i].text = Money(casePrices[i]);
             }
             ResetThumb();
             SetVisible(hud.gameObject, false);
             SetVisible(desk.gameObject, true);
-            RefreshCart();
+            SelectPage(OfficePage.Orders);
             if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
         }
 
         public void CloseDesk()
         {
+            if (ReportOpen) { DismissDayReport(); return; }
             SetVisible(desk.gameObject, false);
             SetVisible(hud.gameObject, true);
             if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
@@ -169,6 +177,11 @@ namespace Qofeno
             LayoutSafeArea();
             if (toast.gameObject.activeSelf && Time.unscaledTime >= toastUntil) toast.gameObject.SetActive(false);
             if (Application.isMobilePlatform && !DeskOpen) TrackThumb();
+            if (DeskOpen && !ReportOpen && shift != null && Time.unscaledTime >= refreshOfficeAt)
+            {
+                refreshOfficeAt = Time.unscaledTime + 1;
+                RefreshOffice();
+            }
         }
 
         void LayoutSafeArea()
@@ -231,40 +244,48 @@ namespace Qofeno
             Plate(desk, "Monitor surround", new Color32(13, 31, 28, 241), true);
             sheet = Plate(desk, "Supplier order form", Paper, true);
             Pin(sheet, .5f, .5f, 0, 0, PaperWidth, PaperHeight);
-            var top = Row(sheet, "Terminal bar", 0, 60, Pine);
+            officeContent = Panel(sheet, "Office pages");
+            var top = Row(officeContent, "Terminal bar", 0, 60, Pine);
             At(top, "Terminal identity", "Harbor Market", 24, Chalk, true, 22, 0, 173, 60);
             VRule(top, 181, 20, 20, new Color32(135, 164, 139, 255));
-            At(top, "Application", "Wholesale desk", 19, Chalk, false, 197, 0, 210, 60);
+            BuildNavigation(top);
             var leave = TextButton(top, "Leave desk", "Leave desk", new Color32(48, 90, 74, 255),
                 Chalk, () => exitDesk?.Invoke());
             Place(leave.transform as RectTransform, 733, 0, 136, 60);
 
-            At(sheet, "Order title", "Stock order", 43, Ink, true, 22, 61, 420, 58);
-            At(sheet, "Funds caption", "Available funds", 16, Muted, false, 566, 70, 150, 32,
+            officeHeading = At(officeContent, "Office page heading", "Stock order", 43, Ink, true, 22, 61, 442, 58);
+            At(officeContent, "Funds caption", "Available funds", 16, Muted, false, 566, 70, 150, 32,
                 TextAnchor.MiddleRight);
-            fundsText = At(sheet, "Available balance", "", 28, Ink, true, 721, 65, 126, 43,
+            fundsText = At(officeContent, "Available balance", "", 28, Ink, true, 721, 65, 126, 43,
                 TextAnchor.MiddleRight);
-            var headings = Row(sheet, "Column headings", 129, 28, Pale);
+            BuildRangeSelector();
+            var orders = Panel(officeContent, "Stock order");
+            officePages[(int)OfficePage.Orders] = orders;
+            var headings = Row(orders, "Column headings", 129, 28, Pale);
             At(headings, "Product label", "Product", 16, Muted, true, 22, 1, 300, 25);
             At(headings, "Case label", "Pack size", 16, Muted, true, 354, 1, 145, 25);
             At(headings, "Price label", "Case price", 16, Muted, true, 511, 1, 105, 25);
             At(headings, "Quantity label", "Cases to order", 16, Muted, true, 648, 1, 197, 25, TextAnchor.MiddleCenter);
             var prints = Resources.Load<Texture2D>("ShopModels/harbor-prints");
-            for (var i = 0; i < SkuCount; i++) BuildOrderRow(i, prints);
-            Row(sheet, "Footer rule", 373, 2, Pine);
-            orderSummary = At(sheet, "Order summary", "", 23, Ink, true, 22, 381, 468, 40);
-            orderAmount = At(sheet, "Balance after order", "", 17, Muted, false, 22, 418, 480, 35);
-            var submitRect = Plate(sheet, "Place order", Pine, true);
+            var coastalPrints = Resources.Load<Texture2D>(ShopModels.CoastalPrints);
+            for (var i = 0; i < SkuCount; i++)
+                BuildOrderRow(orders, i, i < RetailShift.BaseSkuCount ? prints : coastalPrints);
+            Row(orders, "Footer rule", 373, 2, Pine);
+            orderSummary = At(orders, "Order summary", "", 23, Ink, true, 22, 381, 468, 40);
+            orderAmount = At(orders, "Balance after order", "", 17, Muted, false, 22, 418, 480, 35);
+            var submitRect = Plate(orders, "Place order", Pine, true);
             Place(submitRect, 603, 389, 244, 64);
             send = MakeButton(submitRect, Pine, Submit);
             submitLabel = Label(submitRect, "Order total", "", 25, Chalk, true, TextAnchor.MiddleCenter);
             Inset(submitLabel.rectTransform, 6, 0, 6, 0);
+            BuildManagementPages(prints, coastalPrints);
         }
 
-        void BuildOrderRow(int sku, Texture2D prints)
+        void BuildOrderRow(RectTransform orders, int sku, Texture2D prints)
         {
-            var row = Row(sheet, "Order line " + (sku + 1), 157 + sku * 72, 72, Paper);
-            if (sku > 0) Row(row, "Line", 0, 1, Rule);
+            int index = sku % RetailShift.BaseSkuCount;
+            var row = orderRows[sku] = Row(orders, "Order line " + (sku + 1), 157 + index * 72, 72, Paper);
+            if (index > 0) Row(row, "Line", 0, 1, Rule);
             ProductThumbnail(row, sku, prints);
             productNames[sku] = At(row, "Product name", "", 26, Ink, true, 78, 7, 264, 35);
             stockLabels[sku] = At(row, "Shelf stock", "", 16, Muted, false, 79, 40, 260, 24);
@@ -279,21 +300,20 @@ namespace Qofeno
 
         static void ProductThumbnail(RectTransform row, int sku, Texture2D prints)
         {
-            Color pack = sku == 0 ? new Color32(39, 68, 55, 255) :
-                sku == 1 ? new Color32(122, 65, 45, 255) : new Color32(188, 193, 147, 255);
-            var body = Plate(row, "Product pack", pack);
-            float width = sku == 2 ? 44 : 32;
+            var body = Plate(row, "Product pack", PackColors[sku]);
+            float width = sku == 2 ? 44 : sku == 4 ? 39 : 34;
             float height = sku == 2 ? 35 : 51;
             Place(body, 43 - width * .5f, 36 - height * .5f, width, height);
             if (prints != null)
             {
                 var graphic = Panel(body, "Printed label").gameObject.AddComponent<RawImage>();
                 graphic.texture = prints;
-                graphic.uvRect = new Rect((8f + sku * 256) / 1024f, 716f / 1024f, 240f / 1024f, 300f / 1024f);
+                graphic.uvRect = sku >= RetailShift.BaseSkuCount ? ShopModels.CoastalLabelUV(sku) :
+                    new Rect((8f + sku * 256) / 1024f, 716f / 1024f, 240f / 1024f, 300f / 1024f);
                 graphic.raycastTarget = false;
                 Inset(graphic.rectTransform, 2, 3, 2, 3);
             }
-            if (sku == 1)
+            if (sku == 1 || sku == 5)
             {
                 Row(body, "Tin lid", 0, 3, Gold);
                 Row(body, "Tin base", height - 3, 3, Gold);
@@ -303,9 +323,18 @@ namespace Qofeno
         void Step(int sku, int direction)
         {
             if (submitting || !DeskOpen) return;
-            if (direction > 0 && (cart[sku] == int.MaxValue || Total() + casePrices[sku] > available)) return;
+            if (direction > 0 && !CanAddCase(sku, Total())) return;
             cart[sku] = Math.Max(0, cart[sku] + direction);
             RefreshCart();
+        }
+
+        bool CanAddCase(int sku, long total)
+        {
+            if (sku >= suppliedSkus || total + casePrices[sku] > available || cart[sku] == int.MaxValue) return false;
+            if (shift != null && !shift.IsUnlocked(sku)) return false;
+            if (shift == null) return true;
+            int delivered = shift.GetDelivered(sku) + (shift.HeldSku == sku ? shift.HeldUnits : 0);
+            return ((long)cart[sku] + 1) * caseSizes[sku] <= RetailShift.DeliveryCapacity - delivered;
         }
 
         long Total()
@@ -324,11 +353,11 @@ namespace Qofeno
                 units += (long)cart[i] * caseSizes[i];
                 counts[i].text = cart[i].ToString();
                 subtract[i].interactable = !submitting && cart[i] > 0;
-                add[i].interactable = !submitting && cart[i] < int.MaxValue && total + casePrices[i] <= available;
+                add[i].interactable = !submitting && CanAddCase(i, total);
             }
             orderSummary.text = cases == 0 ? "No cases selected" :
                 cases + (cases == 1 ? " case" : " cases") + "   /   " + units + (units == 1 ? " unit" : " units");
-            orderAmount.text = "Balance after order   " + Money(available - total);
+            orderAmount.text = total > available ? "Short by   " + Money(total - available) : "Balance after order   " + Money(available - total);
             submitLabel.text = "Place order   " + Money(total);
             send.interactable = !submitting && cases > 0 && total <= available;
         }
@@ -338,7 +367,12 @@ namespace Qofeno
             if (!DeskOpen || submitting || !send.interactable || order == null) return;
             submitting = true;
             RefreshCart();
-            try { order((int[])cart.Clone()); }
+            try
+            {
+                var requested = new int[suppliedSkus];
+                Array.Copy(cart, requested, requested.Length);
+                order(requested);
+            }
             finally
             {
                 submitting = false;

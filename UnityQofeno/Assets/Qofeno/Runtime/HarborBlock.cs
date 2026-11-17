@@ -5,7 +5,7 @@ using UnityEngine.Rendering;
 namespace Qofeno
 {
     /// A street-level fish-quay shop. Positions are in metres, with the entrance to the south.
-    public sealed class HarborBlock : MonoBehaviour
+    public sealed partial class HarborBlock : MonoBehaviour
     {
         public static readonly Vector3 Spawn = new Vector3(0f, 0f, -1.45f);
         public static readonly Vector3 ShelfPosition = new Vector3(-2.30f, 0f, 2.50f);
@@ -54,6 +54,18 @@ namespace Qofeno
                 indices.Add(first); indices.Add(first + 2); indices.Add(first + 3);
             }
 
+            public void Print(Vector3 center, Vector3 right, float height, Rect region)
+            {
+                int first = vertices.Count;
+                Vector3 up = Vector3.up * height * .5f;
+                Vector3 halfRight = right * .5f;
+                Quad(center-halfRight-up, center-halfRight+up, center+halfRight+up, center+halfRight-up);
+                uv[first] = new Vector2(region.xMin,region.yMin);
+                uv[first+1] = new Vector2(region.xMin,region.yMax);
+                uv[first+2] = new Vector2(region.xMax,region.yMax);
+                uv[first+3] = new Vector2(region.xMax,region.yMin);
+            }
+
             void Add(Vector3 v, Vector3 n)
             {
                 vertices.Add(v);
@@ -73,8 +85,10 @@ namespace Qofeno
             UtilityDoor();
             WallClock();
             OfficeDesk();
+            DressMarket();
             Street();
             Waterfront();
+            QuayStop();
             BakeGeometry();
             BuildLighting();
             AddTraffic(-29f, -8.1f, 5.0f);
@@ -642,7 +656,7 @@ namespace Qofeno
             node.transform.localPosition=position;
             var light=node.AddComponent<Light>();
             light.type=LightType.Point;
-            light.color=new Color(1f,.88f,.74f);
+            light.color=new Color(1f,.92f,.81f);
             light.range=range;
             light.shadows=LightShadows.None;
             light.renderMode=LightRenderMode.Auto;
@@ -677,7 +691,7 @@ namespace Qofeno
                 sky.SetFloat("_Exposure",Mathf.Lerp(.16f,1.0f,day));
                 sky.SetColor("_SkyTint",Color.Lerp(Hex("7385A4"),Hex("B7C3C9"),day));
             }
-            foreach(var fixture in shopLights) fixture.intensity=Mathf.Lerp(1.30f,.76f,day);
+            foreach(var fixture in shopLights) fixture.intensity=Mathf.Lerp(2.35f,1.65f,day);
         }
 
         void AddTraffic(float x, float z, float speed)

@@ -1,12 +1,13 @@
 # Harbor Market for Unity
 
-A first-person neighborhood grocer for landscape Android, built in Unity 6000.3.6f1 with C#. Start at 17:20 with £40 in the till and a case of Quayside Tea in receiving. Through the shop window, two estate cars pass the quay in opposite directions. As evening falls, the window light, street lamps and shop lights change. New shoppers arrive from 08:00 until 21:00. Finish the last sale after closing, then explore the night or use the till to open at 08:00.
+A first-person neighborhood grocer for landscape Android, built in Unity 6000.3.6f1 with C#. A new shop opens at 08:00 with £40, eleven products on display and a tea carton in receiving. Estate cars pass on the quay, daylight changes and shoppers visit until 21:00. Finish the last queued sale after closing, then explore the night or use the till to open at 08:00.
 
 ## One shift
 
 1. Turn left at the entrance. Approach the tea carton in receiving and choose **Lift carton**. Carry it to the grocery shelf and choose **Stock shelf**. If a facing fills, the remaining units stay in your hands. You can return them to receiving.
-2. Watch the shopper walk in, pick an available product, and approach the checkout. Face the register, **Scan item**, then **Take payment**. The item travels over the scanner. The physical register shows the total, then the amount paid. The balance increases once.
-3. Approach the shop computer on the right and choose **Use computer**. The camera moves to the monitor. Choose cases of tea, cocoa, or soap on the supplier order form. The form shows the cost and your balance after the purchase. Confirming delivers the cases to their marked spots. Leaving the desk restores the previous view.
+2. Face the checkout. Tap a grocery on the conveyor or choose **Scan item**. The register tracks up to three items at their original shelf prices. For a cash sale, count sterling notes and coins into the change tray and choose **Give change**. Card customers pay at the terminal.
+3. Approach the shop computer on the right and choose **Use computer**. Order cases, adjust shelf prices and compare the day's takings and expenditure. Shoppers can leave merchandise they consider too expensive.
+4. Spend £30 on the shelf expansion to carry Coast Oats, Jetty Coffee and Pier Tomatoes. Spend £45 to hire a stockroom assistant who carries delivered inventory onto the shelves. With both improvements and fifteen completed checkouts, sign the supply contract at the office for a one-time £25 bonus. The store stays open for further play.
 
 On a phone, drag with your left thumb to walk, drag with your right thumb to look, and tap the labeled action button. In the editor, use WASD or the arrow keys, drag the mouse to look, press E to interact, and Escape to leave the desk. A shift saves after each stock or payment action and when the app pauses. A reserved item and its scan state survive a restart.
 

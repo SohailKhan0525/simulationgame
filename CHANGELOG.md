@@ -1,5 +1,13 @@
 # Changelog
 
+## Unity Android 0.2.0 · Harbor Market
+
+- Open a stocked grocery at 08:00. Serve shoppers with one to three items and a second shopper who can browse and join the queue.
+- Tap items on the counter, count sterling change or accept a card. A shopper keeps their quoted prices when the owner changes a shelf label.
+- Use the office to set prices, order six products across two ranges, buy a store expansion, hire a stockroom assistant and review daily accounts.
+- Complete a supply contract by serving 15 customers and purchasing both improvements. The contract pays a single £25 bonus and trading continues.
+- Added original product packaging, shelf-edge labels, shop fittings and shopper outfits. The Android update migrates existing inventory, carried cartons and pending sales.
+
 ## Unity Android 0.1.0 · In development
 
 - Added the Unity Harbor Market shift, editable models and C# tests.
