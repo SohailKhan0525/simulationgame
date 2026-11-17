@@ -15,7 +15,7 @@ PlayerSettings:
   AndroidBundleVersionCode: 3
   AndroidMinSdkVersion: 25
   AndroidTargetSdkVersion: 0
-  AndroidTargetArchitectures: 2
+  AndroidTargetArchitectures: 10
   androidUseCustomKeystore: 0
   scriptingBackend:
     Android: 1
