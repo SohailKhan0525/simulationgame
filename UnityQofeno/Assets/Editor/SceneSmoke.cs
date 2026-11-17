@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -20,11 +21,13 @@ namespace Qofeno.Editor
         const string Started = "Qofeno.Smoke.Started";
         const string Outcome = "Qofeno.Smoke.Outcome";
         const string SaveKey = "harbor-market.smoke.v1";
+        static string startupError;
+        static int readyFrame;
 
         static SceneSmoke()
         {
             EditorApplication.playModeStateChanged += ChangedMode;
-            if (SessionState.GetBool(Running, false)) EditorApplication.update += CheckWhenPlaying;
+            if (SessionState.GetBool(Running, false)) WatchStartup();
         }
 
         [MenuItem("Qofeno/Check Harbor Scene in Play Mode")]
@@ -45,7 +48,7 @@ namespace Qofeno.Editor
             try
             {
                 EditorSceneManager.playModeStartScene = scene;
-                EditorApplication.update += CheckWhenPlaying;
+                WatchStartup();
                 EditorApplication.EnterPlaymode();
             }
             catch
@@ -55,37 +58,122 @@ namespace Qofeno.Editor
             }
         }
 
+        static void WatchStartup()
+        {
+            startupError = null;
+            readyFrame = -1;
+            Application.logMessageReceived += RecordError;
+            EditorApplication.update += CheckWhenPlaying;
+        }
+
+        static void RecordError(string message, string stack, LogType type)
+        {
+            if (startupError == null && Application.isPlaying &&
+                (type == LogType.Exception || type == LogType.Error || type == LogType.Assert))
+                startupError = message + "\n" + stack;
+        }
+
         static void CheckWhenPlaying()
         {
             if (!SessionState.GetBool(Running, false) || SessionState.GetString(Outcome, "") != "") return;
-            if (EditorApplication.timeSinceStartup - SessionState.GetFloat(Started, 0) > 90)
+            if (startupError != null)
             {
-                Finish("Timed out entering Harbor Play mode.");
+                Finish(startupError);
                 return;
             }
-            if (!SessionState.GetBool(EnteredPlay, false) || !Application.isPlaying || Time.frameCount < 3) return;
+            if (EditorApplication.timeSinceStartup - SessionState.GetFloat(Started, 0) > 90)
+            {
+                Finish("Timed out waiting for the playable Harbor market.");
+                return;
+            }
+            if (!SessionState.GetBool(EnteredPlay, false) || !Application.isPlaying || Time.frameCount < 1) return;
             try
             {
                 Ensure(SceneManager.GetActiveScene().path == ScenePath, "Harbor is the active scene");
                 var market = Object.FindFirstObjectByType<MarketSession>();
-                Ensure(market && market.Shift != null && market.Walker && market.Walker.enabled,
+                Ensure(market && market.gameObject.scene == SceneManager.GetActiveScene(), "Harbor contains its startup session");
+                var camera = Camera.main;
+                Ensure(camera && camera.isActiveAndEnabled, "a main camera is active during startup");
+                if (!market.IsReady) return;
+                if (readyFrame < 0) readyFrame = Time.frameCount;
+                if (Time.frameCount == readyFrame) return;
+
+                Ensure(market.Shift != null && market.Walker && market.Walker.enabled,
                     "the retail shift and player controller started");
-                Ensure(Camera.main && Camera.main.isActiveAndEnabled, "the player's camera is live");
+                Ensure(camera.transform.IsChildOf(market.Walker.transform) && camera.targetTexture == null,
+                    "the shopkeeper camera renders to the display");
+                var view = GeometryUtility.CalculateFrustumPlanes(camera);
+                bool stationInView = false;
                 foreach (var name in new[] { "Shelf", "Checkout" })
                 {
                     var station = market.transform.Find(name);
                     Ensure(station && station.GetComponent<BoxCollider>(), name + " has a solid collider");
+                    var mesh = station.GetComponent<MeshFilter>();
+                    var renderer = station.GetComponent<MeshRenderer>();
+                    Ensure(mesh && mesh.sharedMesh && mesh.sharedMesh.vertexCount > 0 &&
+                        renderer && renderer.enabled && renderer.gameObject.activeInHierarchy, name + " has drawable geometry");
+                    var material = renderer.sharedMaterial;
+                    Ensure(material && material.shader && material.shader.name != "Hidden/InternalErrorShader" &&
+                        material.mainTexture, name + " has its printed surface");
+                    if ((camera.cullingMask & (1 << station.gameObject.layer)) != 0 &&
+                        GeometryUtility.TestPlanesAABB(view, renderer.bounds)) stationInView = true;
                 }
+                Ensure(stationInView, "a shop station is in view at spawn");
                 var customer = market.transform.Find("Customer");
                 Ensure(customer && customer.GetComponentInChildren<MeshRenderer>(true), "the shopper has a visible model");
                 var canvas = market.Interface ? market.Interface.GetComponentInChildren<Canvas>() : null;
                 Ensure(canvas && canvas.isActiveAndEnabled && canvas.GetComponent<GraphicRaycaster>() &&
                     EventSystem.current, "the touch HUD and event system started");
-                Finish("passed");
+                Ensure(Array.Exists(canvas.GetComponentsInChildren<Text>(), label =>
+                    label.isActiveAndEnabled && label.text.StartsWith("Day 1 ", StringComparison.Ordinal)),
+                    "the shift clock is visible and populated");
+                if (SystemInfo.graphicsDeviceType != GraphicsDeviceType.Null) CheckRenderedWorld(camera);
+                Finish(startupError ?? "passed");
             }
             catch (Exception exception)
             {
                 Finish(exception.Message);
+            }
+        }
+
+        // Compare the player's real view with its sky/clear pass. This also catches a black world hidden by a valid HUD.
+        static void CheckRenderedWorld(Camera camera)
+        {
+            var target = RenderTexture.GetTemporary(64, 36, 24, RenderTextureFormat.ARGB32);
+            var pixels = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
+            var priorActive = RenderTexture.active;
+            var priorTarget = camera.targetTexture;
+            int priorMask = camera.cullingMask;
+            try
+            {
+                camera.targetTexture = target;
+                Color32[] ReadView()
+                {
+                    camera.Render();
+                    RenderTexture.active = target;
+                    pixels.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0, false);
+                    return pixels.GetPixels32();
+                }
+                var world = ReadView();
+                camera.cullingMask = 0;
+                var sky = ReadView();
+                int litWorldPixels = 0;
+                for (int i = 0; i < world.Length; i++)
+                {
+                    var a = world[i];
+                    var b = sky[i];
+                    if ((a.r > 12 || a.g > 12 || a.b > 12) &&
+                        (Math.Abs(a.r - b.r) + Math.Abs(a.g - b.g) + Math.Abs(a.b - b.b) > 24)) litWorldPixels++;
+                }
+                Ensure(litWorldPixels > world.Length / 100, "the camera draws lit shop geometry over its background");
+            }
+            finally
+            {
+                camera.cullingMask = priorMask;
+                camera.targetTexture = priorTarget;
+                RenderTexture.active = priorActive;
+                RenderTexture.ReleaseTemporary(target);
+                Object.DestroyImmediate(pixels);
             }
         }
 
@@ -114,7 +202,7 @@ namespace Qofeno.Editor
             string result = SessionState.GetString(Outcome, "");
             Cleanup();
             bool passed = result == "passed";
-            if (passed) Debug.Log("Harbor scene passed. Camera, retail shift, customer, station colliders and touch HUD are live.");
+            if (passed) Debug.Log("Harbor scene passed. The player camera, shop geometry, shift clock and touch HUD are live.");
             else Debug.LogError(string.IsNullOrEmpty(result) ? "Harbor check stopped before verification." : result);
             if (Application.isBatchMode) EditorApplication.Exit(passed ? 0 : 1);
         }
@@ -122,6 +210,7 @@ namespace Qofeno.Editor
         static void Cleanup()
         {
             EditorApplication.update -= CheckWhenPlaying;
+            Application.logMessageReceived -= RecordError;
             string path = SessionState.GetString(OldScene, "");
             EditorSceneManager.playModeStartScene = string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<SceneAsset>(path);
             PlayerPrefs.DeleteKey(SaveKey);

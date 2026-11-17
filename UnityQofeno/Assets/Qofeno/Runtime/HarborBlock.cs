@@ -63,7 +63,7 @@ namespace Qofeno
             }
         }
 
-        void Awake()
+        public void Build(float hour)
         {
             Palette();
             ShopShell();
@@ -78,7 +78,7 @@ namespace Qofeno
             BuildLighting();
             AddTraffic(-29f, -8.1f, 5.0f);
             AddTraffic(18f, -11.1f, -5.7f);
-            SetHour(9.5f);
+            SetHour(hour);
         }
 
         void Palette()
@@ -118,7 +118,7 @@ namespace Qofeno
 
         Material Finish(string label, string color, float smooth, string texture = null, float repeat = 1f)
         {
-            var mat = new Material(Shader.Find("Standard")) { name = label };
+            var mat = ShopModels.CreateSurfaceMaterial(label);
             mat.color = Hex(color);
             mat.SetFloat("_Glossiness", smooth);
             if (texture != null)
@@ -596,10 +596,10 @@ namespace Qofeno
             RenderSettings.fog=true;
             RenderSettings.fogMode=FogMode.ExponentialSquared;
             RenderSettings.fogDensity=.015f;
-            var shader=Shader.Find("Skybox/Procedural");
-            if(shader!=null)
+            var skyTemplate = Resources.Load<Material>("MarketSky");
+            if (skyTemplate != null)
             {
-                sky=new Material(shader){name="Tidal sky"};
+                sky = new Material(skyTemplate) { name = "Tidal sky" };
                 sky.SetFloat("_SunSize",.036f);
                 sky.SetFloat("_AtmosphereThickness",.75f);
                 sky.SetColor("_GroundColor",Hex("666B66"));

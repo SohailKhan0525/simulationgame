@@ -16,6 +16,15 @@ namespace Qofeno
         private enum Ink { Milk, Bone, Flax, Honey, Brick, Jam, Pine, Sage, Lake, Mist, Navy, Slate, Steel, Pearl, Coal, Rubber, Skin, Hair, Denim, Leather, Glass, Lamp, Mint, Orange }
         private static readonly Mesh[] Meshes = new Mesh[8];
         private static Material material;
+        private static Material surfaceTemplate;
+
+        internal static Material CreateSurfaceMaterial(string label)
+        {
+            if (!surfaceTemplate) surfaceTemplate = Resources.Load<Material>("MarketSurface");
+            if (!surfaceTemplate)
+                throw new InvalidOperationException("The MarketSurface material is missing from Resources.");
+            return new Material(surfaceTemplate) { name = label };
+        }
 
         public static GameObject Shelf(Transform parent) => Instance(Design.Shelf, parent);
         public static GameObject Checkout(Transform parent) => Instance(Design.Checkout, parent);
@@ -252,9 +261,7 @@ namespace Qofeno
             }
             public static Material Material()
             {
-                // The built-in default material keeps its shader included in an Android player.
-                var template = Resources.GetBuiltinResource<Material>("Default-Material.mat");
-                var mat = new Material(template) { name="Harbor enamel and paper" };
+                var mat = CreateSurfaceMaterial("Harbor enamel and paper");
                 mat.mainTexture = Resources.Load<Texture2D>("ShopModels/harbor-prints");
                 if(mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness",.20f);
                 mat.enableInstancing = true;

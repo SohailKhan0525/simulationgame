@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 namespace Qofeno
@@ -59,21 +60,44 @@ namespace Qofeno
         public RetailShift Shift { get; private set; }
         public ShopInterface Interface => ui;
         public CharacterController Walker => controls.Controller;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void StartMarket()
-        {
-            if (FindFirstObjectByType<MarketSession>() == null)
-                new GameObject("Harbor Market").AddComponent<MarketSession>();
-        }
+        public bool IsReady { get; private set; }
 
         void Awake()
         {
             Application.targetFrameRate = 60;
             Shift = new RetailShift();
             Restore();
+            controls = new GameObject("Shopkeeper").AddComponent<FirstPersonWalker>();
+            controls.transform.SetParent(transform, false);
+            controls.Place(startPosition, startYaw, startPitch);
+            ui = new GameObject("Harbor Market UI").AddComponent<ShopInterface>();
+            ui.transform.SetParent(transform, false);
+        }
+
+        IEnumerator Start()
+        {
+            // Present the camera and loading UI before constructing the procedural world.
+            yield return null;
+            try
+            {
+                ui.BuildControls();
+                BuildMarket();
+                ui.Configure(Interact, Order, LeaveDesk);
+                ui.SetStartupMessage(null);
+                IsReady = true;
+            }
+            catch (Exception error)
+            {
+                Debug.LogException(error, this);
+                ui.SetStartupMessage("Harbor Market couldn’t open.\n" +
+                    error.GetType().Name + " · v" + Application.version);
+            }
+        }
+
+        void BuildMarket()
+        {
             block = gameObject.AddComponent<HarborBlock>();
-            block.SetHour(minutes / 60);
+            block.Build(minutes / 60);
             shelf = Make(ShopModels.Shelf, HarborBlock.ShelfPosition);
             checkout = Make(ShopModels.Checkout, HarborBlock.CheckoutPosition);
             tillReadout = ShopModels.CreateTillReadout(checkout);
@@ -101,13 +125,7 @@ namespace Qofeno
             shopper = Make(ShopModels.Customer, Outside);
             gait = ShopModels.ArticulateCustomer(shopper);
             shopper.gameObject.SetActive(false);
-            controls = new GameObject("Shopkeeper").AddComponent<FirstPersonWalker>();
-            controls.transform.SetParent(transform, false);
-            controls.Place(startPosition, startYaw, startPitch);
             audioCues = gameObject.AddComponent<MarketAudio>();
-            ui = new GameObject("Harbor Market UI").AddComponent<ShopInterface>();
-            ui.transform.SetParent(transform, false);
-            ui.Configure(Interact, Order, LeaveDesk);
             if (Shift.CustomerSku >= 0)
             {
                 shopper.gameObject.SetActive(true);
@@ -136,6 +154,7 @@ namespace Qofeno
 
         void Update()
         {
+            if (!IsReady) return;
             float dt = Mathf.Min(Time.deltaTime, .15f);
             minutes += dt * 2f;
             if (minutes >= 1440) { minutes -= 1440; day++; }
@@ -290,7 +309,7 @@ namespace Qofeno
 
         public void Interact()
         {
-            if (ui.DeskOpen || openingDesk) return;
+            if (!IsReady || ui.DeskOpen || openingDesk) return;
             focus = FindStation();
             if (ActionFor(focus).Length == 0) return;
             if (focus == Station.Desk) { OpenDesk(); return; }
@@ -437,7 +456,7 @@ namespace Qofeno
 
         void SaveShift()
         {
-            if (Shift == null) return;
+            if (!IsReady) return;
             var save = new Save { shift = Shift.Capture(), minutes = minutes, day = day };
             if (controls != null)
             {

@@ -24,6 +24,8 @@ namespace Qofeno
 
         Font regular, display;
         RectTransform safe, hud, desk, sheet, prompt, toast;
+        RectTransform startup;
+        Text startupText;
         RectTransform thumbBase, thumb, carry;
         Text clockText, balanceText, focusText, actionText, carryText, toastText;
         Text fundsText, orderSummary, orderAmount, submitLabel;
@@ -50,9 +52,6 @@ namespace Qofeno
             if (regular == null) regular = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             display = Resources.Load<Font>("ShopType/BarlowCondensed-SemiBold");
             if (display == null) display = regular;
-            ring = MakeCircle(true, out ringTexture);
-            disc = MakeCircle(false, out discTexture);
-
             var canvasObject = new GameObject("Market interface", typeof(RectTransform), typeof(Canvas),
                 typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasObject.transform.SetParent(transform, false);
@@ -71,6 +70,16 @@ namespace Qofeno
             }
 
             safe = Panel(canvasObject.transform, "Safe area");
+            startup = Plate(canvasObject.transform, "Market startup", Pine, true);
+            startupText = Label(startup, "Startup status", "", 28, Chalk, true, TextAnchor.MiddleCenter);
+            Inset(startupText.rectTransform, 40, 20, 40, 20);
+            SetStartupMessage("Opening Harbor Market…");
+        }
+
+        public void BuildControls()
+        {
+            ring = MakeCircle(true, out ringTexture);
+            disc = MakeCircle(false, out discTexture);
             hud = Panel(safe, "Shop floor");
             BuildHud();
             desk = Panel(safe, "Supplier terminal");
@@ -85,6 +94,14 @@ namespace Qofeno
             this.interact = interact;
             this.order = order;
             this.exitDesk = exitDesk;
+        }
+
+        public void SetStartupMessage(string message)
+        {
+            bool show = !string.IsNullOrEmpty(message);
+            startupText.text = message ?? "";
+            SetVisible(safe.gameObject, !show);
+            SetVisible(startup.gameObject, show);
         }
 
         public void SetHud(string clock, string balance, string focus, string action, string carried)
@@ -148,6 +165,7 @@ namespace Qofeno
 
         void Update()
         {
+            if (!safe.gameObject.activeSelf) return;
             LayoutSafeArea();
             if (toast.gameObject.activeSelf && Time.unscaledTime >= toastUntil) toast.gameObject.SetActive(false);
             if (Application.isMobilePlatform && !DeskOpen) TrackThumb();
@@ -501,7 +519,8 @@ namespace Qofeno
             }
             texture.SetPixels32(pixels);
             texture.Apply(false, true);
-            return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(.5f, .5f));
+            return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(.5f, .5f),
+                100f, 0, SpriteMeshType.FullRect);
         }
 
         void OnDestroy()

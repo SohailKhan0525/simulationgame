@@ -12,7 +12,7 @@ On a phone, drag with your left thumb to walk, drag with your right thumb to loo
 
 ## Open and build
 
-Open this **UnityQofeno** directory in Unity Hub using **6000.3.6f1**. Open **Assets/Scenes/Harbor.unity** and press Play. The entry scene intentionally starts empty. [MarketSession](Assets/Qofeno/Runtime/MarketSession.cs) constructs the harbor and starts the shift after the scene loads.
+Open this **UnityQofeno** directory in Unity Hub using **6000.3.6f1**. Open **Assets/Scenes/Harbor.unity** and press Play. The scene’s [MarketSession](Assets/Qofeno/Runtime/MarketSession.cs) opens the shopkeeper’s view, displays the loading message, and builds the market before enabling movement and saving.
 
 With Android Build Support, its SDK/NDK tools and OpenJDK installed for that editor, choose **Qofeno → Build Android APK**. The output is `Builds/Android/Qofeno-Harbor-Market.apk`. The standalone app targets ARM64 and uses `com.qofeno.simulation.unity`. You can also use the [Android build workflow](https://github.com/SohailKhan0525/simulationgame/actions/workflows/unity-android.yml).
 
