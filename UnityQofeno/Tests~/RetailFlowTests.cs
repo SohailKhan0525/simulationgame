@@ -306,7 +306,8 @@ internal static class RetailFlowTests
             Check(shift.IsUnlocked(sku) && RetailShift.NameOf(sku) == names[i] && shift.Price(sku) == prices[i] &&
                 RetailShift.CaseSize(sku) == sizes[i] && shift.GetDelivered(sku) == 2 * sizes[i],
                 "Each licence delivers the named product, quantity and ticket.");
-            Check(shift.Take(sku) && shift.Stock() && shift.Take(sku), "Open both of this product's cases.");
+            Check(shift.Take(sku) && !shift.StockAt(true) && shift.Stock() && shift.Take(sku),
+                "Licensed goods are only placed on their own six-facing shelf.");
             if (sizes[i] < 6) Check(shift.Stock(), "Use the remaining space on the licensed shelf.");
             Check(!shift.Stock() && shift.GetShelf(sku) == 6 && shift.HeldUnits == 2 * sizes[i] - 6 && shift.ReturnCarton(),
                 "Six facings are the limit for a licensed item and surplus goods stay in the case.");
@@ -325,6 +326,47 @@ internal static class RetailFlowTests
         corrupted.shelf[4] = 7;
         Check(!RetailShift.TryRestore(corrupted, out _), "Expansion saves cannot overfill a licensed facing.");
         Check(shift.Order(new[] { 1, 0, 0 }), "The original three-item order API remains usable after expansion.");
+    }
+
+    private static void CheckPhysicalFacings()
+    {
+        var setup = new RetailShift().Capture();
+        setup.shelf[0] = 2;
+        setup.cash = 15000;
+        Check(RetailShift.TryRestore(setup, out var shift) && shift.Take(0) && !shift.StockAt(true) &&
+            shift.HeldUnits == 3, "The annex cannot be stocked before it has been installed.");
+        Check(shift.TryExpand() && shift.StockAt(true) && shift.GetFacing(0, false) == 2 &&
+            shift.GetFacing(0, true) == 3 && shift.GetShelf(0) == 5, "A carton placed at the annex stays there.");
+        Check(shift.Order(new[] { 2, 0, 0 }) && shift.Take(0) && shift.StockAt(true) &&
+            shift.GetFacing(0, true) == 6, "A second carton fills the annex without touching the first rack.");
+        Check(shift.Take(0) && !shift.StockAt(true) && shift.HeldUnits == 3, "A full local facing refuses the whole carton.");
+        for (int i = 0; i < 4; i++) Check(shift.BeginSale(0) && shift.Scan() && shift.Pay(), "Shopper picks a tea.");
+        Check(shift.GetFacing(0, false) == 0 && shift.GetFacing(0, true) == 4, "Shoppers empty the original facing first.");
+        Check(shift.StockAt(true) && shift.HeldUnits == 1 && shift.GetFacing(0, false) == 0 &&
+            shift.GetFacing(0, true) == 6, "A partial annex placement leaves overflow in the player's hand.");
+        shift = Reload(shift);
+        Check(shift.GetFacing(0, true) == 6 && shift.StockAt(false) && shift.GetFacing(0, false) == 1 &&
+            shift.GetFacing(0, true) == 6, "Both independent facings and the partial carton survive reopening.");
+
+        Check(shift.Order(new[] { 2, 0, 0 }) && shift.TryHireStocker() && shift.NextRestockSku() == 0,
+            "The employee plans a receiving-to-shelf trip.");
+        Check(!shift.RestockAt(0, true) && shift.GetDelivered(0) == 6, "A stale full destination consumes nothing.");
+        for (int i = 0; i < 5; i++) Check(shift.RestockOne() == 0, "The stocker fills the first facing one unit at a time.");
+        Check(shift.GetFacing(0, false) == 6 && shift.GetFacing(0, true) == 6 && shift.NextRestockSku() == -1 &&
+            shift.GetDelivered(0) == 1, "Full fixtures leave remaining deliveries on the pallet.");
+        var oldLayout = shift.Capture();
+        oldLayout.annex = null;
+        oldLayout.shelf[0] = 9;
+        Check(RetailShift.TryRestore(oldLayout, out var migrated) && migrated.GetFacing(0, false) == 6 &&
+            migrated.GetFacing(0, true) == 3, "Older total-only layouts retain their former six-plus-overflow distribution.");
+        Check(migrated.NextRestockSku() == 0 && migrated.RestockOne() == 0 && migrated.GetFacing(0, true) == 4 &&
+            migrated.GetFacing(0, false) == 6, "With a full first fixture, automatic restocking selects the annex.");
+        var bad = migrated.Capture();
+        bad.annex[0] = 2;
+        Check(!RetailShift.TryRestore(bad, out _), "Reject a split that would place eight units on the first facing.");
+        bad.annex[0] = 7;
+        Check(!RetailShift.TryRestore(bad, out _), "Reject a split that would overfill the annex.");
+        Check(migrated.GetFacing(0, true) == 4, "A captured array never aliases actual product placement.");
     }
 
     private static void CheckCampaign()
@@ -384,6 +426,7 @@ internal static class RetailFlowTests
         CheckPricesAndBaskets();
         CheckV1Migration();
         CheckLicensedGoods();
+        CheckPhysicalFacings();
         CheckCampaign();
         CheckMixedShift();
         Console.WriteLine($"{assertions:N0} checks passed, including pricing, baskets, v1 migration, the supply contract, " +

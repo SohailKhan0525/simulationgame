@@ -32,6 +32,8 @@ namespace Qofeno
             public int version = 2;
             public int cash = 4000;
             public int[] shelf = { 5, 4, 2, 0, 0, 0 };
+            // shelf contains totals; annex stores the portion on each original product's second facing.
+            public int[] annex;
             public int[] delivered = { 3, 0, 0, 0, 0, 0 };
             public int heldSku = -1;
             public int heldUnits;
@@ -52,6 +54,7 @@ namespace Qofeno
             {
                 var result = (Snapshot)MemberwiseClone();
                 result.shelf = (int[])shelf.Clone();
+                result.annex = (int[])annex?.Clone();
                 result.delivered = (int[])delivered.Clone();
                 result.prices = (int[])prices?.Clone();
                 result.basket = (int[])basket?.Clone();
@@ -62,7 +65,17 @@ namespace Qofeno
 
         readonly Snapshot data;
         public RetailShift() : this(new Snapshot()) { }
-        RetailShift(Snapshot source) { data = source; }
+        RetailShift(Snapshot source)
+        {
+            data = source;
+            if (data.annex == null || data.annex.Length == 0)
+            {
+                // Before placement was saved, the first rack was always rendered full before the second.
+                data.annex = new int[BaseSkuCount];
+                for (int sku = 0; sku < BaseSkuCount; sku++)
+                    data.annex[sku] = Math.Max(0, data.shelf[sku] - ShelfCapacity);
+            }
+        }
 
         public int Cash => data.cash;
         public int HeldSku => data.heldSku;
@@ -115,6 +128,12 @@ namespace Qofeno
         public static int UnitPrice(int sku) => ValidSku(sku) ? MarketPrices[sku] : 0;
         public int Price(int sku) => ValidSku(sku) ? data.prices[sku] : 0;
         public int GetShelf(int sku) => ValidSku(sku) ? data.shelf[sku] : 0;
+        public int GetFacing(int sku, bool annex)
+        {
+            if (!IsUnlocked(sku)) return 0;
+            int onSecondRack = sku < BaseSkuCount ? data.annex[sku] : 0;
+            return annex ? onSecondRack : GetShelf(sku) - onSecondRack;
+        }
         public int GetDelivered(int sku) => ValidSku(sku) ? data.delivered[sku] : 0;
 
         int SumPrices(int count)
@@ -183,10 +202,18 @@ namespace Qofeno
 
         public bool Stock()
         {
-            if (!ValidSku(data.heldSku)) return false;
-            int placed = Math.Min(data.heldUnits, CapacityFor(data.heldSku) - data.shelf[data.heldSku]);
+            bool placedOnMain = StockAt(false);
+            return StockAt(true) || placedOnMain;
+        }
+
+        public bool StockAt(bool annex)
+        {
+            int sku = HeldSku;
+            if (!IsUnlocked(sku) || (annex && (!IsExpanded || sku >= BaseSkuCount))) return false;
+            int placed = Math.Min(HeldUnits, ShelfCapacity - GetFacing(sku, annex));
             if (placed <= 0) return false;
-            data.shelf[data.heldSku] += placed;
+            data.shelf[sku] += placed;
+            if (annex) data.annex[sku] += placed;
             data.heldUnits -= placed;
             if (data.heldUnits == 0) data.heldSku = -1;
             return true;
@@ -241,19 +268,32 @@ namespace Qofeno
             return true;
         }
 
-        public int RestockOne()
+        public int NextRestockSku()
         {
             if (!HasStocker) return -1;
             int target = -1;
             for (int sku = 0; sku < SkuCount; sku++)
                 if (GetDelivered(sku) > 0 && GetShelf(sku) < CapacityFor(sku) &&
                     (target < 0 || GetShelf(sku) < GetShelf(target))) target = sku;
-            if (target >= 0)
-            {
-                data.delivered[target]--;
-                data.shelf[target]++;
-            }
             return target;
+        }
+
+        public bool RestockAt(int sku, bool annex)
+        {
+            if (!HasStocker || !IsUnlocked(sku) || GetDelivered(sku) == 0 ||
+                (annex && (!IsExpanded || sku >= BaseSkuCount)) || GetFacing(sku, annex) >= ShelfCapacity)
+                return false;
+            data.delivered[sku]--;
+            data.shelf[sku]++;
+            if (annex) data.annex[sku]++;
+            return true;
+        }
+
+        public int RestockOne()
+        {
+            int sku = NextRestockSku();
+            if (sku < 0) return -1;
+            return RestockAt(sku, GetFacing(sku, false) == ShelfCapacity) ? sku : -1;
         }
 
         public bool BeginSale(int sku)
@@ -295,6 +335,7 @@ namespace Qofeno
             for (int i = 0; i < items.Length; i++)
             {
                 int sku = items[i];
+                if (sku < BaseSkuCount && GetFacing(sku, false) == 0) data.annex[sku]--;
                 data.shelf[sku]--;
                 data.agreedPrices[i] = Price(sku);
             }
@@ -369,12 +410,20 @@ namespace Qofeno
             if (value.heldSku == -1 ? value.heldUnits != 0 : value.heldUnits < 1 || value.heldUnits > Sizes[value.heldSku]) return false;
             if (value.customerSku < -1 || value.customerSku >= unlockedCount) return false;
             if (value.scanned && value.customerSku == -1) return false;
+            bool hasAnnexCounts = value.version == 2 && value.annex != null && value.annex.Length != 0;
+            if (hasAnnexCounts && value.annex.Length != BaseSkuCount) return false;
             for (int i = 0; i < savedSkuCount; i++)
             {
                 int carried = i == value.heldSku ? value.heldUnits : 0;
                 if (value.shelf[i] < 0 || value.shelf[i] > ShelfSpace(i, expanded) ||
                     value.delivered[i] < 0 || value.delivered[i] > DeliveryCapacity - carried ||
                     (i >= unlockedCount && value.delivered[i] > 0)) return false;
+                if (hasAnnexCounts && i < BaseSkuCount)
+                {
+                    int second = value.annex[i];
+                    if (second < 0 || second > (expanded ? ShelfCapacity : 0) || second > value.shelf[i] ||
+                        value.shelf[i] - second > ShelfCapacity) return false;
+                }
             }
 
             if (value.version == 1)
