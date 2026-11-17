@@ -4,12 +4,13 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Qofeno.Editor
 {
     public static class AndroidBuild
     {
-        private const string EntryScene = "Assets/Scenes/Harbor.unity";
+        internal const string EntryScene = "Assets/Scenes/Harbor.unity";
 
         [MenuItem("Qofeno/Build Android APK")]
         public static void BuildApk()
@@ -47,6 +48,29 @@ namespace Qofeno.Editor
                 throw new BuildFailedException($"Android build {report.summary.result}, {report.summary.totalErrors} errors.");
 
             Debug.Log($"Wrote Android APK to {report.summary.outputPath}");
+        }
+    }
+
+    // Runs for both the Unity Cloud target and the local Android build command.
+    sealed class HarborStartupCheck : IProcessSceneWithReport
+    {
+        public int callbackOrder => 0;
+
+        public void OnProcessScene(Scene scene, BuildReport report)
+        {
+            if (report == null || report.summary.platform != BuildTarget.Android || scene.path != AndroidBuild.EntryScene)
+                return;
+
+            int activeSessions = 0;
+            foreach (var root in scene.GetRootGameObjects())
+                foreach (var session in root.GetComponentsInChildren<MarketSession>())
+                    if (session.isActiveAndEnabled) activeSessions++;
+            if (activeSessions != 1)
+                throw new BuildFailedException("Harbor needs exactly one enabled MarketSession at launch.");
+
+            var surface = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/MarketSurface.mat");
+            if (!surface || !surface.shader || surface.shader.name != "Standard")
+                throw new BuildFailedException("Harbor's packaged MarketSurface material needs the Standard shader.");
         }
     }
 }
