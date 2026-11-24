@@ -23,6 +23,9 @@ func _ready() -> void:
 	probe.max_distance = 90.0
 	probe.mesh_lod_threshold = 4.0
 	probe.enable_shadows = false
+	# Use this probe for specular reflections only. Its narrow street capture
+	# must not replace the world's calibrated diffuse sky/bounce fill on the car.
+	probe.ambient_mode = ReflectionProbe.AMBIENT_DISABLED
 	probe.box_projection = false
 	probe.update_mode = ReflectionProbe.UPDATE_ALWAYS
 	add_child(probe)
