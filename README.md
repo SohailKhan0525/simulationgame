@@ -10,7 +10,7 @@ An offline-first Android driving game built with **Godot 4.5.1**. Stay behind th
 
 Install the signed `Qofeno-Drive.apk` from a published release on an Android 8+ device with ARM64 or x86_64 support. Android may ask you to allow installation from the app you use to open the APK. Desktop development builds can be run from the Godot editor.
 
-Choose **Continue your drive**, open **Jobs**, accept a dispatch and follow the destination marker. Stop below 5 km/h at a pickup or destination and use **Interact**. At a petrol station, stop beside the attendant and interact to buy fuel without leaving the car. Cash and XP unlock cars, upgrades and later dispatches. Earlier jobs remain replayable.
+Choose **Continue your drive**, open **Jobs**, accept a dispatch and follow the destination marker. Stop below 3 km/h at a pickup or destination and use **Interact**. At a petrol station, stop beside the attendant and interact to buy fuel without leaving the car. Cash and XP unlock cars, upgrades and later dispatches. Earlier jobs remain replayable.
 
 | Action | Android | Keyboard |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ Progress is saved automatically and when pausing. **Settings & updates** provide
 - Four contact rays with spring/damper suspension, tire-force limits, braking, reverse, handbrake, wet grip, fuel consumption and impact damage. Engine, road, wind, horn and impact sounds are synthesized.
 - Three fictional cars: Aster S, Meridian GT and Veloce R, each with five performance upgrade stages and different engine tuning.
 - Twenty progression levels and twenty level-gated, repeatable dispatches, including passenger trips, deliveries and timed checkpoint challenges. Passenger dialogue includes commuters, a tipsy rider, an off-duty officer, a reformed thief and a shady fare.
-- Optional traffic-light race invitations. Declining produces twelve distinct crowd banter lines without a money/XP penalty. Races are timed checkpoint challenges; they do not yet simulate a head-to-head racing opponent.
+- Optional traffic-light race invitations. Declining produces twelve distinct crowd banter lines without a money/XP penalty. Races use a visible physical waypoint-following rival; time trials use checkpoint timers. The rival yields to nearby obstructions, and reaching the finish first decides the race.
 - A deterministic streamed region with a city center, residential areas, wealthy neighborhoods, parkland, a forest and a village. The whole initial region is open at level 1; future regions and more levels/cars are marked **Coming soon**.
 - Procedural building/window materials, wet road shading, wind-animated foliage, rain particles, day/night lighting, ambient weather effects, animated bird silhouettes, traffic signals and nearby traffic.
 - In-game money, attendant refueling, repairs, mission markers, a map, loading screens, quality settings and versioned saves with backup recovery.
@@ -42,7 +42,7 @@ Progress is saved automatically and when pausing. **Settings & updates** provide
 
 Buildings have static collision, not destruction or structural simulation. The map is a regular procedural road grid rather than real geographic data. Mirrors are decorative. Birds are simple animated silhouettes, not an ecosystem. Cars and cabins share procedural modeling components rather than individually authored production assets. Engine sounds and speech need a recorded audio pass for a final-quality presentation.
 
-The first version does not include multiplayer, pedestrian gameplay, walking outside the car, advanced traffic routing, functioning reflected mirrors, detailed deformation, licensed vehicles or a real competitor AI for races. Future regions are placeholders, not downloadable expansion maps. Broad world bounds are implemented; sustained driving performance, far-edge physics precision and the full upgrade-installation flow still require testing on Android devices.
+The first version does not include multiplayer, pedestrian gameplay, walking outside the car, advanced traffic routing, functioning reflected mirrors, detailed deformation, licensed vehicles or production-grade racing AI. Future regions are placeholders, not downloadable expansion maps. Broad world bounds are implemented; sustained driving performance, far-edge physics precision and the full upgrade-installation flow still require testing on Android devices.
 
 ## Development
 
