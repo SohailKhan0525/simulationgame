@@ -29,6 +29,7 @@ const WHEEL_MOUNTS := [Vector3(-0.82, 0.28, -1.28), Vector3(0.82, 0.28, -1.28), 
 var _engine_force: float = 6600.0
 var _top_speed: float = 48.0
 var _steering: float = 0.0
+var _steering_input: float = 0.0
 var _wheel_spin: float = 0.0
 var _wheel_pivots: Array[Node3D] = []
 var _wheel_meshes: Array[Node3D] = []
@@ -86,7 +87,7 @@ func configure(selected_car: int, upgrades: int) -> void:
 	_top_speed = [48.0, 57.0, 67.0][car_index] + upgrade_level * 1.6
 	mass = [1280.0, 1420.0, 1540.0][car_index]
 	if _paint != null:
-		_paint.albedo_color = [Color("b9d5c7"), Color("b94429"), Color("d8d2c1")][car_index]
+		_paint.albedo_color = [Color("526772"), Color("b94429"), Color("d8d2c1")][car_index]
 
 func reset_to(world_position: Vector3, yaw: float = 0.0) -> void:
 	_reset_transform = Transform3D(Basis(Vector3.UP, yaw), world_position)
@@ -120,6 +121,9 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		state.angular_velocity = Vector3.ZERO
 		_reset_pending = false
 		_last_speed = 0.0
+		_steering = 0.0
+		_steering_input = 0.0
+		speed_kmh = 0.0
 		return
 	var dt: float = state.step
 	var body_basis: Basis = state.transform.basis.orthonormalized()
@@ -129,8 +133,22 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	speed_kmh = state.linear_velocity.length() * 3.6
 	var acceleration_input: float = clampf(throttle, -1.0, 1.0) if enabled and fuel_liters > 0.0 else 0.0
 	var brake_input: float = clampf(brake, 0.0, 1.0) if enabled else 1.0
-	var steering_limit: float = 0.52 / (1.0 + absf(longitudinal_speed) / 24.0)
-	_steering = move_toward(_steering, -clampf(steer, -1.0, 1.0) * steering_limit if enabled else 0.0, dt * 1.8)
+	# Selecting the other direction while moving first brakes the car. Reversing
+	# drive torque at road speed makes the touchscreen D/R selector unpredictable.
+	if acceleration_input * longitudinal_speed < 0.0 and absf(longitudinal_speed) > 1.2:
+		brake_input = maxf(brake_input, absf(acceleration_input))
+		acceleration_input = 0.0
+	# A resting thumb on DRIVE must not fight the brake under the other thumb.
+	acceleration_input *= 1.0 - brake_input
+	var target_steer: float = clampf(steer, -1.0, 1.0) if enabled else 0.0
+	var road_speed: float = absf(longitudinal_speed)
+	var returning: bool = is_zero_approx(target_steer) or target_steer * _steering_input < 0.0
+	var steering_rate: float = 4.6 if returning else lerpf(3.4, 2.2, clampf(road_speed / 35.0, 0.0, 1.0))
+	_steering_input = move_toward(_steering_input, target_steer, dt * steering_rate)
+	# Retain parking lock, then reduce lock with speed. The bicycle-model envelope
+	# prevents a full thumb swipe from demanding an impossible high-speed corner.
+	var steering_limit: float = clampf(atan(2.56 * 8.5 / maxf(1.0, road_speed * road_speed)), 0.005, 0.54)
+	_steering = -_steering_input * steering_limit
 	var contacts: int = 0
 	for index in range(4):
 		var mount: Vector3 = WHEEL_MOUNTS[index]
@@ -156,14 +174,14 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 				var forward_speed: float = velocity_at_contact.dot(tire_forward)
 				var side_speed: float = velocity_at_contact.dot(tire_right)
 				var grip: float = lerpf(1.25, 0.77, clampf(wetness, 0.0, 1.0))
-				if handbrake and index >= 2:
+				if enabled and handbrake and index >= 2:
 					grip *= 0.5
 				var drive: float = acceleration_input * _engine_force * 0.25
 				var speed_limit: float = _top_speed if acceleration_input >= 0.0 else 10.0
 				drive *= clampf(1.0 - absf(forward_speed) / speed_limit, 0.0, 1.0)
 				var rolling_resistance: float = -forward_speed * 10.0
 				var braking: float = brake_input * 9000.0
-				if handbrake and index >= 2:
+				if enabled and handbrake and index >= 2:
 					braking += 11000.0
 				# Limiting braking by the momentum removed per step prevents low-speed oscillation.
 				var brake_force: float = -signf(forward_speed) * minf(braking, absf(forward_speed) * mass * 0.25 / dt)
@@ -277,7 +295,7 @@ func _label(parent: Node3D, value: String, at: Vector3, size: int, color: Color)
 	return text
 
 func _build_visuals() -> void:
-	_paint = _material(Color("b9d5c7"), 0.65, 0.25)
+	_paint = _material(Color("526772"), 0.65, 0.25)
 	var leather := _material(Color("141c21"), 0.05, 0.8)
 	var leather_light := _material(Color("273039"), 0.0, 0.88)
 	var trim := _material(Color("82928e"), 0.8, 0.22)
@@ -438,6 +456,8 @@ func _build_visuals() -> void:
 	cockpit_camera.far = 1400.0
 	cockpit_camera.current = false
 	add_child(cockpit_camera)
+
+	load("res://scripts/vehicle_art.gd").install(self)
 
 func _dial(parent: Node3D, at: Vector3, title: String, luminous: Material, background: Material) -> Node3D:
 	var disc := _cylinder(parent, 0.086, 0.008, at, background, 32)

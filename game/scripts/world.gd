@@ -6,6 +6,12 @@ const TILE := 160.0
 const LIMIT := 14000.0
 const ROAD_HALF := 11.0
 const TrafficScript = preload("res://scripts/world_traffic.gd")
+const STREET_ASSETS := {
+	"brick_corner": "res://assets/world/brick_corner.glb",
+	"limestone_midrise": "res://assets/world/limestone_midrise.glb",
+	"brick_lowrise": "res://assets/world/brick_lowrise.glb",
+	"street_plane_tree": "res://assets/world/street_plane_tree.glb"
+}
 var ready_for_drive := false
 var rival_finished := false
 var rival_progress := 0.0
@@ -34,6 +40,7 @@ var _signal_meshes: Array[MultiMeshInstance3D] = []
 var _last_light_phase := -1
 var _stream_timer := 0.0
 var _prepared := false
+var _asset_parts: Dictionary = {}
 
 func _ready() -> void:
 	_prepare()
@@ -60,12 +67,14 @@ func _prepare() -> void:
 	_foliage.radial_segments = 8
 	_foliage.rings = 4
 	_materials.ground = _material(Color("434e41"),0.96)
-	_materials.sidewalk = _material(Color("7c807c"),0.96)
+	_materials.sidewalk = ShaderMaterial.new()
+	_materials.sidewalk.shader = load("res://scripts/world_paving.gdshader")
+	_materials.curb = _material(Color("92928b"),0.95)
 	_materials.marking = _material(Color("e6dcb9"),0.85)
 	_materials.yellow = _material(Color("eab64c"),0.8)
 	_materials.trim = _material(Color("192c34"),0.62,0.25)
 	_materials.trunk = _material(Color("5e493c"),1.0)
-	_materials.grass = _material(Color("365c46"),1.0)
+	_materials.grass = _material(Color("293b20"),1.0)
 	_materials.red = _material(Color("f44336"),0.4,0.0,Color("ff1a08"))
 	_materials.green = _material(Color("57d6a0"),0.4,0.0,Color("20ff78"))
 	_materials.white = _material(Color("f5ead3"),0.5,0.0,Color("fce2a3")*0.3)
@@ -73,15 +82,24 @@ func _prepare() -> void:
 	_materials.road.shader = load("res://scripts/world_road.gdshader")
 	_materials.building = ShaderMaterial.new()
 	_materials.building.shader = load("res://scripts/world_building.gdshader")
+	_materials.glass = ShaderMaterial.new()
+	_materials.glass.shader = load("res://scripts/world_glass.gdshader")
 	_materials.leaf = ShaderMaterial.new()
 	_materials.leaf.shader = load("res://scripts/world_foliage.gdshader")
+	for asset_id in STREET_ASSETS:
+		var packed: PackedScene = load(STREET_ASSETS[asset_id])
+		var source := packed.instantiate()
+		var parts: Array = []
+		_collect_asset_meshes(source,Transform3D.IDENTITY,parts)
+		_asset_parts[asset_id] = parts
+		source.free()
 	_environment = Environment.new()
 	_environment.background_mode = Environment.BG_SKY
 	_sky = ProceduralSkyMaterial.new()
 	_sky.sky_top_color = Color("406b8d")
-	_sky.sky_curve = 0.32
-	_sky.sky_energy_multiplier = 0.72
-	_sky.ground_energy_multiplier = 0.65
+	_sky.sky_curve = 0.18
+	_sky.sky_energy_multiplier = 0.6
+	_sky.ground_energy_multiplier = 0.3
 	_sky.sky_horizon_color = Color("ddc2a1")
 	_sky.ground_bottom_color = Color("374551")
 	_sky.ground_horizon_color = Color("ddc2a1")
@@ -89,12 +107,12 @@ func _prepare() -> void:
 	sky.sky_material = _sky
 	_environment.sky = sky
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	_environment.ambient_light_color = Color("8b9fab")
-	_environment.ambient_light_energy = 0.35
+	_environment.ambient_light_color = Color("b6c4ce")
+	_environment.ambient_light_energy = 0.30
 	_environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	_environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	_environment.fog_enabled = true
-	_environment.fog_density = 0.0019
+	_environment.fog_density = 0.0012
 	_environment.fog_light_color = Color("a5b9c2")
 	_environment.fog_sky_affect = 0.22
 	var env_node := WorldEnvironment.new()
@@ -142,6 +160,50 @@ func _material(color: Color, roughness: float, metallic: float = 0.0, emission: 
 		mat.emission = emission
 	return mat
 
+func _collect_asset_meshes(node: Node, parent_transform: Transform3D, parts: Array) -> void:
+	var transform := parent_transform
+	if node is Node3D: transform = parent_transform * node.transform
+	if node is MeshInstance3D and node.mesh:
+		parts.append({"mesh":node.mesh,"transform":transform,"material":node.mesh.surface_get_material(0)})
+	for child in node.get_children(): _collect_asset_meshes(child,transform,parts)
+
+func _batch_asset(parent: Node3D,asset_id: String,placements: Array[Transform3D]) -> void:
+	if placements.is_empty(): return
+	var detail_distance: float = [145.0,205.0,285.0][quality]
+	for part in _asset_parts[asset_id]:
+		var transforms: Array[Transform3D] = []
+		for placement in placements: transforms.append(placement * part.transform)
+		var override: Material = null
+		if part.material and part.material.resource_name.contains("glazing"): override = _materials.glass
+		var batch := _multimesh(parent,part.mesh,override,transforms,[])
+		batch.name = asset_id
+		batch.set_meta("authored_asset",true)
+		# Shared imported geometry is instanced once per chunk/material, not per window.
+		batch.visibility_range_end = detail_distance
+		batch.visibility_range_end_margin = 8.0
+	# At distance, complete blocks use a cheap facade mesh; source detail stays nearby.
+	# Godot's importer additionally generates mesh LODs for each authored GLB.
+	if asset_id == "street_plane_tree": return
+	var height := 20.0
+	var color := Color("996a50")
+	if asset_id == "limestone_midrise":
+		height = 33.0
+		color = Color("c0b4a0")
+	elif asset_id == "brick_lowrise": height = 14.0
+	var proxies: Array[Transform3D] = []
+	var colors: Array[Color] = []
+	for placement in placements:
+		proxies.append(placement * _xform(Vector3(0,height*0.5,0),Vector3(24,height,24)))
+		colors.append(color)
+		if asset_id == "limestone_midrise":
+			proxies.append(placement * _xform(Vector3(0,height+3,0),Vector3(16,6,17)))
+			colors.append(color)
+	var distant := _multimesh(parent,_box,_materials.building,proxies,colors)
+	distant.name = asset_id+"_distant"
+	distant.set_meta("distant_asset",true)
+	distant.visibility_range_begin = detail_distance
+	distant.visibility_range_begin_margin = 8.0
+
 func set_player(value: Node3D) -> void:
 	player = value
 	if is_instance_valid(_traffic): _traffic.set("player",value)
@@ -156,6 +218,10 @@ func set_quality(value: int) -> void:
 		_rain.amount = [180,400,650][quality]
 		set_weather(wetness,hour)
 		if is_instance_valid(_traffic): _traffic.set("car_count",[10,18,28][quality])
+		for chunk in _chunks.values():
+			for node in chunk.get_children():
+				if node.has_meta("authored_asset"): node.visibility_range_end = [145.0,205.0,285.0][quality]
+				if node.has_meta("distant_asset"): node.visibility_range_begin = [145.0,205.0,285.0][quality]
 		_queue_chunks(_tile_at(player.global_position) if is_instance_valid(player) else Vector2i.ZERO)
 
 func get_load_progress() -> float:
@@ -180,6 +246,7 @@ func _queue_chunks(center: Vector2i) -> void:
 			_chunks[key].queue_free()
 			_chunks.erase(key)
 	_target_count = wanted.size()
+	ready_for_drive = _pending.is_empty()
 
 func _process(delta: float) -> void:
 	elapsed += delta
@@ -236,17 +303,18 @@ func set_weather(rain_amount: float, time_of_day: float) -> void:
 	var daylight := clampf(sin((hour-6.0)/24.0*TAU)*1.5,0.0,1.0)
 	var sunset := 1.0-absf(daylight-0.45)
 	_sun.rotation_degrees = Vector3(-maxf(8,sin((hour-6.0)/24.0*TAU)*65),-35,0)
-	_sun.light_energy = lerpf(0.12,0.9,daylight)*(1.0-wetness*0.55)
+	_sun.light_energy = lerpf(0.08,0.82,daylight)*(1.0-wetness*0.55)
 	_sun.light_color = Color("ffe7c4").lerp(Color("ffd09b"),sunset*0.5).lerp(Color("c6d5df"),wetness)
-	_environment.ambient_light_energy = lerpf(0.30,0.35,daylight)
-	_environment.fog_density = lerpf(0.00095,0.0045,wetness)
+	_environment.ambient_light_energy = lerpf(0.18,0.32,daylight)
+	_environment.fog_density = lerpf(0.0014,0.0045,wetness)
 	if quality == 0: _environment.fog_density = maxf(_environment.fog_density,0.0065)
-	_environment.fog_light_color = Color("3c5366").lerp(Color("899896"),daylight)
-	_sky.sky_top_color = Color("101e34").lerp(Color("32566f"),daylight).lerp(Color("52626d"),wetness*0.8)
-	_sky.sky_horizon_color = Color("273b50").lerp(Color("bca58e"),daylight).lerp(Color("71828a"),wetness)
+	_environment.fog_light_color = Color("3c5366").lerp(Color("8d9ba4"),daylight)
+	_sky.sky_top_color = Color("101e34").lerp(Color("3e7298"),daylight).lerp(Color("73828b"),wetness*0.8)
+	_sky.sky_horizon_color = Color("273b50").lerp(Color("a7b9c5"),daylight).lerp(Color("9ba7aa"),wetness)
 	_sky.ground_horizon_color = _sky.sky_horizon_color
 	_materials.road.set_shader_parameter("wetness",wetness)
 	_materials.building.set_shader_parameter("night_amount",1.0-daylight*0.8)
+	_materials.glass.set_shader_parameter("night_amount",1.0-daylight)
 	_rain.emitting = wetness>0.15
 
 func _make_chunk(key: Vector2i) -> Node3D:
@@ -275,84 +343,90 @@ func _make_chunk(key: Vector2i) -> Node3D:
 		stripe_transforms.append(_xform(Vector3(d,0.025,5.5),Vector3(5,0.02,0.12)))
 		stripe_transforms.append(_xform(Vector3(d,0.025,-5.5),Vector3(5,0.02,0.12)))
 	for s in [-1,1]:
-		center_transforms.append(_xform(Vector3(s*0.22,0.03,0),Vector3(0.12,0.02,160)))
-		center_transforms.append(_xform(Vector3(0,0.031,s*0.22),Vector3(160,0.02,0.12)))
+		# Junctions stay open: double-yellow lines stop before the crossing.
+		for end in [-1,1]:
+			center_transforms.append(_xform(Vector3(s*0.16,0.03,end*49.0),Vector3(0.1,0.012,62)))
+			center_transforms.append(_xform(Vector3(end*49.0,0.031,s*0.16),Vector3(62,0.012,0.1)))
+		stripe_transforms.append(_xform(Vector3(s*5.6,0.033,s*18.2),Vector3(10.2,0.012,0.42)))
+		stripe_transforms.append(_xform(Vector3(-s*18.2,0.033,s*5.6),Vector3(0.42,0.012,10.2)))
 		for d in range(-9,10,3):
 			stripe_transforms.append(_xform(Vector3(d,0.034,s*14),Vector3(1.5,0.02,4)))
 			stripe_transforms.append(_xform(Vector3(s*14,0.035,d),Vector3(4,0.02,1.5)))
 	_multimesh(root,_box,_materials.marking,stripe_transforms,[])
 	_multimesh(root,_box,_materials.yellow,center_transforms,[])
-	var buildings: Array[Transform3D] = []
-	var colors: Array[Color] = []
-	var leaf_transforms: Array[Transform3D] = []
-	var leaf_colors: Array[Color] = []
-	var trunk_transforms: Array[Transform3D] = []
-	var trim_transforms: Array[Transform3D] = []
+	var brick_blocks: Array[Transform3D] = []
+	var stone_blocks: Array[Transform3D] = []
+	var low_blocks: Array[Transform3D] = []
+	var trees: Array[Transform3D] = []
+	var curb_transforms: Array[Transform3D] = []
+	var street_details: Array[Transform3D] = []
 	var sidewalk_transforms: Array[Transform3D] = []
 	var is_station := posmod(key.x,4)==0 and posmod(key.y,4)==0
 	var district := district_at(root.position)
 	for sx in [-1,1]:
 		for sz in [-1,1]:
 			var lot := Vector3(sx*47,0,sz*47)
-			sidewalk_transforms.append(_xform(lot+Vector3(0,0.08,0),Vector3(68,0.16,68)))
+			sidewalk_transforms.append(_xform(lot+Vector3(0,0.085,0),Vector3(66,0.17,66)))
+			# Raised continuous curb and pedestrian pavement along each block face.
+			curb_transforms.append(_xform(Vector3(sx*13.5,0.13,sz*47),Vector3(0.45,0.26,66)))
+			curb_transforms.append(_xform(Vector3(sx*47,0.13,sz*13.5),Vector3(66,0.26,0.45)))
+			# Drainage grates sit in the gutter, aligned with the real curb.
+			for d in [25,70]:
+				for grate in range(6):
+					street_details.append(_xform(Vector3(sx*12.8,0.025,sz*d+grate*0.075),Vector3(0.7,0.015,0.035)))
+					street_details.append(_xform(Vector3(sx*d+grate*0.075,0.025,sz*12.8),Vector3(0.035,0.015,0.7)))
 			if is_station and sx==1 and sz==1:
 				_station(root,ground)
 				continue
-			var park := district.contains("FOREST") or district.contains("PARK") or rng.randf()<0.10
+			var park := district.contains("FOREST") or district.contains("PARK") or rng.randf()<0.07
 			if park:
-				_mesh_box(root,lot+Vector3(0,0.17,0),Vector3(62,0.1,62),_materials.grass)
-				for t in range(10 if quality>0 else 6):
+				_mesh_box(root,lot+Vector3(0,0.17,0),Vector3(58,0.1,58),_materials.grass)
+				# A through path and perimeter planting make parks readable from the car.
+				sidewalk_transforms.append(_xform(lot+Vector3(0,0.24,0),Vector3(3,0.08,60)))
+				sidewalk_transforms.append(_xform(lot+Vector3(0,0.24,0),Vector3(60,0.08,3)))
+				for t in range(9 if quality>0 else 5):
 					var p := lot+Vector3(rng.randf_range(-25,25),0,rng.randf_range(-25,25))
-					_add_tree(p,rng,leaf_transforms,leaf_colors,trunk_transforms)
+					if absf(p.x-lot.x)<3: p.x += 5
+					if absf(p.z-lot.z)<3: p.z += 5
+					_add_authored_tree(p,rng,trees)
 				continue
-			var count := 2 if district.contains("VILLAGE") or district.contains("HEIGHTS") else 1
-			for j in range(count):
-				var bp := lot+Vector3((j-0.5)*30 if count>1 else 0,0,0)
-				var height := rng.randf_range(17,36)
-				var width := rng.randf_range(30,48)
-				var depth := rng.randf_range(32,48)
-				var tint := Color("8b7666").lerp(Color("6a8a93"),rng.randf())
-				if district.contains("MIDTOWN"):
-					height = rng.randf_range(45,142)
-					tint = Color("476875").lerp(Color("77888d"),rng.randf())
-				elif count>1:
-					height = rng.randf_range(5,11)
-					width = 22
-					depth = 29
-					tint = Color("cab89e").lerp(Color("aa8b71"),rng.randf())
-				var size := Vector3(width,height,depth)
-				buildings.append(_xform(bp+Vector3(0,height*0.5+0.15,0),size))
-				colors.append(tint)
-				_collision_box(ground,bp+Vector3(0,height*0.5+0.15,0),size)
-				trim_transforms.append(_xform(bp+Vector3(0,height+0.4,0),Vector3(width+1.4,0.6,depth+1.4)))
-				trim_transforms.append(_xform(bp+Vector3(0,3.8,0),Vector3(width+0.7,0.3,depth+0.7)))
-				# Street-front awnings create real silhouette and shade without extra batches.
-				for frontage in [-1,1]:
-					trim_transforms.append(_xform(bp+Vector3(0,3.45,frontage*(depth*0.5+1.15)),Vector3(width*0.8,0.22,2.4)))
-					trim_transforms.append(_xform(bp+Vector3(frontage*(width*0.5+1.15),3.45,0),Vector3(2.4,0.22,depth*0.8)))
-				if height>30:
-					buildings.append(_xform(bp+Vector3(0,height+4,0),Vector3(width*0.5,8,depth*0.5)))
-					colors.append(tint*0.88)
-				if rng.randf()<0.4:
-					var sign := _label(root,["QOFENO","CAFE  /  24","ATELIER","PARK AVENUE"][rng.randi_range(0,3)],bp+Vector3(0,5.1,-depth*0.5-0.03),0.034)
-					sign.modulate = Color("e6d5b7")
-			for t in range(3):
-				_add_tree(Vector3(sx*15.2,0,sz*(27+t*20)),rng,leaf_transforms,leaf_colors,trunk_transforms)
+			var low_district := district.contains("VILLAGE") or district.contains("HEIGHTS")
+			# Buildings line the street, rather than floating alone in large empty lots.
+			var positions := [Vector3(sx*32,0,sz*32),Vector3(sx*64,0,sz*32),Vector3(sx*32,0,sz*64)]
+			if low_district: positions = [Vector3(sx*34,0,sz*34),Vector3(sx*63,0,sz*63)]
+			for j in range(positions.size()):
+				var bp: Vector3 = positions[j]
+				var height_scale := rng.randf_range(0.93,1.08)
+				var height := 20.0
+				var placement := Transform3D(Basis(Vector3.UP,float(rng.randi_range(0,3))*PI*0.5).scaled(Vector3(1,height_scale,1)),bp+Vector3(0,0.18,0))
+				if low_district:
+					low_blocks.append(placement)
+					height = 14
+				elif district.contains("MIDTOWN") and ((key.x+key.y+j)%3==0):
+					stone_blocks.append(placement)
+					height = 39
+				else:
+					brick_blocks.append(placement)
+				_collision_box(ground,bp+Vector3(0,height*height_scale*0.5+0.18,0),Vector3(24,height*height_scale,24))
+			# Small planted street trees frame the view without hiding junction sightlines.
+			for t in [29,58]:
+				_add_authored_tree(Vector3(sx*16.1,0,sz*t),rng,trees)
+				_add_authored_tree(Vector3(sx*t,0,sz*16.1),rng,trees)
 	_multimesh(root,_box,_materials.sidewalk,sidewalk_transforms,[])
-	_multimesh(root,_box,_materials.building,buildings,colors)
-	_multimesh(root,_box,_materials.trim,trim_transforms,[])
-	_multimesh(root,_foliage,_materials.leaf,leaf_transforms,leaf_colors)
-	_multimesh(root,_cylinder,_materials.trunk,trunk_transforms,[])
+	_multimesh(root,_box,_materials.curb,curb_transforms,[])
+	_multimesh(root,_box,_materials.trim,street_details,[])
+	_batch_asset(root,"brick_corner",brick_blocks)
+	_batch_asset(root,"limestone_midrise",stone_blocks)
+	_batch_asset(root,"brick_lowrise",low_blocks)
+	_batch_asset(root,"street_plane_tree",trees)
 	_street_furniture(root)
 	if absf(root.position.x)>LIMIT-TILE or absf(root.position.z)>LIMIT-TILE:
 		_build_boundary(root,ground)
 	return root
 
-func _add_tree(p: Vector3,rng: RandomNumberGenerator,leaves: Array[Transform3D],colors: Array[Color],trunks: Array[Transform3D]) -> void:
-	var h := rng.randf_range(6,10)
-	trunks.append(_xform(p+Vector3(0,h*0.4,0),Vector3(0.5,h*0.8,0.5)))
-	leaves.append(_xform(p+Vector3(0,h,0),Vector3(6,h*0.8,6)))
-	colors.append(Color("385f49").lerp(Color("799759"),rng.randf()))
+func _add_authored_tree(p: Vector3,rng: RandomNumberGenerator,trees: Array[Transform3D]) -> void:
+	var scale_tree := rng.randf_range(0.78,1.14)
+	trees.append(Transform3D(Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3.ONE*scale_tree),p+Vector3(0,0.18,0)))
 
 func _street_furniture(root: Node3D) -> void:
 	var poles: Array[Transform3D] = []
@@ -375,6 +449,19 @@ func _street_furniture(root: Node3D) -> void:
 	ew.set_meta("north_south",false)
 	_signal_meshes.append(ns)
 	_signal_meshes.append(ew)
+	# Restrained signs at a single corner make streets recognizable through the glass.
+	_mesh_box(root,Vector3(-12.75,4.75,-12.75),Vector3(3.6,0.58,0.12),_materials.trim)
+	var street_number := 40+roundi(root.position.z/TILE)
+	var street_name := _label(root,"W %d ST" % absi(street_number),Vector3(-12.75,4.75,-12.83),0.012)
+	street_name.modulate = Color("f0eee5")
+	street_name.rotation.y = PI
+	# Cast iron bollards and tree guards have scale cues close to the cockpit.
+	var bollards: Array[Transform3D] = []
+	for sx in [-1,1]:
+		for sz in [-1,1]:
+			for d in [18,76]:
+				bollards.append(_xform(Vector3(sx*14.5,0.65,sz*d),Vector3(0.16,1.0,0.16)))
+	_multimesh(root,_cylinder,_materials.trim,bollards,[])
 	_update_signals()
 
 func _update_signals() -> void:
