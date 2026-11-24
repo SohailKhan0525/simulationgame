@@ -22,9 +22,13 @@ after export; the source uses Blender's Z-up axes.
 
 The building kit has recessed glazing, projecting window sills, cornices,
 storefront awnings, metal fire escapes, parapets and rooftop equipment. Embedded
-window faces are single-sided to avoid drawing invisible box interiors. Broad
-architectural edges, road slabs and kerbstones use applied two-segment bevels and
-weighted normals. Trees use tapered branches and original textured branch cards
+window faces are single-sided to avoid drawing invisible box interiors. All solid
+manufactured boxes, including architectural trim, rooftop cabinets, railings,
+road slabs and kerbstones, use applied two-segment bevels, smooth shading and
+weighted normals. Bevel radii follow each part's scale and are capped at 20% of
+its thinnest dimension. Flat facade/glass cards retain their inexpensive planar
+geometry; organic trees and rocks use smooth shading without manufactured edges.
+Trees use tapered branches and original textured branch cards
 with alpha scissor at runtime. These assets are
 instanced in the streamed world, with simple collision volumes kept separate.
 

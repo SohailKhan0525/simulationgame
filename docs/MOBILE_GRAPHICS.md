@@ -16,7 +16,7 @@ This revision takes lighting and material cues from Forza Horizon 5 while retain
 
 The [Godot environment guide](https://docs.godotengine.org/en/4.5/tutorials/3d/environment_and_post_processing.html) describes the tone-mapping restriction and Mobile-supported depth fog/glow. The [4.5.1 reflection implementation](https://github.com/godotengine/godot/blob/4.5.1-stable/servers/rendering/renderer_rd/storage_rd/light_storage.cpp#L1498) enforces the live-probe size. Mobile has no SSR, SSAO or volumetric fog; the material AO is baked instead.
 
-The probe captures the world without the player's own body and affects the car's render layer. Its capture range is bounded by the selected quality level. Updating a cubemap is expensive even at a small resolution; this feature is included as requested, with no claim that every Android GPU can sustain it at 60 FPS.
+The probe captures the world without the player's own body and affects the car's render layer. It supplies specular reflections only: `AMBIENT_DISABLED` preserves the WorldEnvironment's diffuse fill instead of replacing it with the dark street capture. Its capture range is bounded by the selected quality level. Updating a cubemap is expensive even at a small resolution; this feature is included as requested, with no claim that every Android GPU can sustain it at 60 FPS.
 
 ## Rebuild the art
 

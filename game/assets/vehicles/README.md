@@ -29,7 +29,7 @@ metallic materials; it is a base-color bake, not baked illumination. The source
 blend retains procedural material copies named `*.source` for editing. Runtime
 GLBs intentionally contain no images: `vehicle_art.gd` assigns the same four texture
 resources to body, cockpit and all wheels, avoiding four copies of the atlas.
-Paint uses metallic 0.82, clearcoat 0.8 and coat roughness 0.11. Glass is translucent
+Paint uses metallic 0.65, clearcoat 0.8 and coat roughness 0.11. Glass is translucent
 and single-sided. `update_lights(vehicle, braking, headlights)` updates duplicated
 headlamp and brake-lamp emissive materials without affecting other cars.
 

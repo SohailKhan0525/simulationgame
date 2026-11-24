@@ -9,19 +9,19 @@
     "ao"
   ],
   "bevel_segments": 2,
-  "bevel_applied": 18,
-  "weighted_normals_applied": 18,
+  "bevel_applied": 914,
+  "weighted_normals_applied": 914,
   "assets": {
     "brick_corner": {
-      "triangles": 5932,
+      "triangles": 33388,
       "material_batches": 5
     },
     "limestone_midrise": {
-      "triangles": 8920,
+      "triangles": 48664,
       "material_batches": 5
     },
     "brick_lowrise": {
-      "triangles": 4180,
+      "triangles": 22996,
       "material_batches": 5
     },
     "street_plane_tree": {

@@ -218,19 +218,23 @@ def cube(name, loc, size, mat, bevel=0):
             co = obj.data.vertices[obj.data.loops[li].vertex_index].co + Vector(loc)
             uv.data[li].uv = ((co.y if axis == 0 else co.x) / 2.8,
                               (co.y if axis == 2 else co.z) / 2.8)
-    if bevel and (min(size[:2]) > 10 or name in {"Kerbstone","Parking bollard"}):
-        mod = obj.modifiers.new("Edge highlights", "BEVEL")
-        mod.width = bevel
-        mod.segments = 2
-        mod.harden_normals = True
-        bpy.context.view_layer.objects.active = obj
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-        for polygon in obj.data.polygons: polygon.use_smooth=True
-        normals=obj.modifiers.new("Weighted normals", "WEIGHTED_NORMAL")
-        normals.keep_sharp=True
-        bpy.ops.object.modifier_apply(modifier=normals.name)
-        REPORT["bevel_applied"]+=1
-        REPORT["weighted_normals_applied"]+=1
+    # Every solid manufactured prop gets an edge highlight, including narrow
+    # railings and rooftop cabinets. Keep the radius proportional to thin parts;
+    # flat facade/leaf cards bypass this solid-box helper intentionally.
+    smallest = min(size)
+    width = bevel if bevel > 0 else min(.008, smallest * .12)
+    mod = obj.modifiers.new("Edge highlights", "BEVEL")
+    mod.width = min(width, smallest * .2)
+    mod.segments = 2
+    mod.limit_method = 'ANGLE'
+    mod.harden_normals = True
+    for polygon in obj.data.polygons: polygon.use_smooth=True
+    normals=obj.modifiers.new("Weighted normals", "WEIGHTED_NORMAL")
+    normals.keep_sharp=True
+    # Evaluate all queued modifiers together after assembly. Applying each one
+    # here would repeatedly update the growing scene dependency graph.
+    REPORT["bevel_applied"]+=1
+    REPORT["weighted_normals_applied"]+=1
     return obj
 
 
@@ -488,6 +492,26 @@ def roadside_kit():
 leaf_card_material=foliage_atlas()
 assets = [building("brick_corner", 5, brick), building("limestone_midrise", 9, sandstone, True),
           building("brick_lowrise", 3, brick), tree()]+roadside_kit()
+
+print("Evaluating hard-surface modifiers", REPORT["bevel_applied"], flush=True)
+bpy.context.view_layer.update()
+depsgraph = bpy.context.evaluated_depsgraph_get()
+evaluated_meshes = []
+for collection in assets:
+    for obj in collection.objects:
+        if obj.type == 'MESH' and obj.modifiers:
+            evaluated = obj.evaluated_get(depsgraph)
+            mesh = bpy.data.meshes.new_from_object(evaluated, preserve_all_data_layers=True, depsgraph=depsgraph)
+            evaluated_meshes.append((obj, mesh))
+            if len(evaluated_meshes) % 100 == 0:
+                print("Evaluated", len(evaluated_meshes), "solid props", flush=True)
+for obj, mesh in evaluated_meshes:
+    original = obj.data
+    obj.modifiers.clear()
+    obj.data = mesh
+    if original.users == 0:
+        bpy.data.meshes.remove(original)
+print("Applied", len(evaluated_meshes), "bevel/normal pairs; exporting assemblies", flush=True)
 
 for collection in assets:
     # One mesh per material: compact GLBs and bounded runtime rendering batches.
