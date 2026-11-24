@@ -2,18 +2,44 @@ extends SceneTree
 func _init() -> void: call_deferred("run")
 func run() -> void:
 	var game=load("res://scenes/main.tscn").instantiate()
+	var isolated:=ProjectSettings.globalize_path("res://../build/test-data/")
+	DirAccess.make_dir_recursive_absolute(isolated)
+	game.save_file=isolated+"capture-%d.json" % OS.get_process_id()
+	game.settings_file=isolated+"capture-%d.cfg" % OS.get_process_id()
 	root.add_child(game)
 	current_scene=game
+	await take("loading")
 	while game.mode!="menu": await process_frame
+	game.session.cancel_job()
+	game.session.status=""
+	game.last_session_status=""
+	game.toast_timer=0
 	await take("menu")
 	game._start_drive()
-	for _i in range(30): await process_frame
+	for _i in range(10): await process_frame
 	await take("cockpit")
+	game.touch_mode=1
+	game._start_drive()
+	await take("touch")
 	game._settings()
 	await take("settings")
+	game.settings_tab=1
+	game._settings()
+	await take("display-settings")
 	game._garage()
 	await take("garage")
+	game.session.start_job(0,game.vehicle.position)
+	game._map_screen()
+	await take("map")
+	game._start_drive()
+	root.size=Vector2i(1440,648)
+	for _i in range(8): await process_frame
+	game._layout_ui()
+	await take("wide-touch")
 	print("RENDER_CAPTURE_PASS")
+	if "--interactive-preview" in OS.get_cmdline_user_args():
+		game._menu()
+		return
 	game.queue_free()
 	await process_frame
 	quit()

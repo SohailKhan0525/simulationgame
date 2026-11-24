@@ -15,6 +15,10 @@ func capture(file_name: String) -> void:
 	root.get_texture().get_image().save_png(directory+file_name)
 func run() -> void:
 	game=load("res://scenes/main.tscn").instantiate()
+	var isolated:=ProjectSettings.globalize_path("res://../build/test-data/")
+	DirAccess.make_dir_recursive_absolute(isolated)
+	game.save_file=isolated+"smoke-%d.json" % OS.get_process_id()
+	game.settings_file=isolated+"smoke-%d.cfg" % OS.get_process_id()
 	root.add_child(game)
 	current_scene=game
 	await frames(140)
