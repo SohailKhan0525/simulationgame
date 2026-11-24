@@ -100,7 +100,7 @@ static func _apply_materials(root: Node, paint: Material, lights: Dictionary, sh
 				material.ao_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
 				material.ao_light_affect = 0.0
 			if key == "Paint":
-				material.metallic = 0.82
+				material.metallic = 0.65
 				material.clearcoat_enabled = true
 				material.clearcoat = 0.8
 				material.clearcoat_roughness = 0.11

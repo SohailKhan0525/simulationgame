@@ -112,8 +112,8 @@ func _prepare() -> void:
 	_sky = ProceduralSkyMaterial.new()
 	_sky.sky_top_color = Color("406b8d")
 	_sky.sky_curve = 0.18
-	_sky.sky_energy_multiplier = 0.6
-	_sky.ground_energy_multiplier = 0.3
+	_sky.sky_energy_multiplier = 1.0
+	_sky.ground_energy_multiplier = 0.7
 	_sky.sky_horizon_color = Color("ddc2a1")
 	_sky.ground_bottom_color = Color("374551")
 	_sky.ground_horizon_color = Color("ddc2a1")
@@ -121,8 +121,8 @@ func _prepare() -> void:
 	sky.sky_material = _sky
 	_environment.sky = sky
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	_environment.ambient_light_color = Color("9facbf")
-	_environment.ambient_light_energy = 0.30
+	_environment.ambient_light_color = Color("d2dcec")
+	_environment.ambient_light_energy = 0.95
 	_environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	_mobile_renderer = RenderingServer.get_current_rendering_method() == "mobile"
 	# Godot 4.5 Mobile has an HDR ceiling of 2.0; AgX fixes white at 16.29.
@@ -130,7 +130,9 @@ func _prepare() -> void:
 	# other renderers and use ACES with a calibrated white point on Mobile.
 	_environment.tonemap_mode = Environment.TONE_MAPPER_ACES if _mobile_renderer else Environment.TONE_MAPPER_AGX
 	_environment.tonemap_white = 2.0 if _mobile_renderer else 8.0
-	_environment.tonemap_exposure = 1.0
+	# AgX's wider range needs a separate exposure calibration; reusing Mobile's
+	# ACES value crushes the car and street-level shadows in the OpenGL fallback.
+	_environment.tonemap_exposure = 1.15 if _mobile_renderer else 1.6
 	_environment.glow_enabled = quality > 0
 	_environment.glow_hdr_threshold = 0.95 if _mobile_renderer else 1.1
 	_environment.glow_intensity = 0.32 if _mobile_renderer else 0.18
@@ -377,9 +379,11 @@ func set_weather(rain_amount: float, time_of_day: float) -> void:
 	var golden_hour := clampf(1.0-absf(hour-17.0)/3.0,0.0,1.0)
 	# 77.274066 * sin(165 degrees) = 20 degrees at the 17:00 golden-hour preset.
 	_sun.rotation_degrees = Vector3(-maxf(8.0,solar*77.274066),-35,0)
-	_sun.light_energy = lerpf(0.06,1.0,daylight)*(1.0-wetness*0.58)
+	_sun.light_energy = lerpf(0.06,1.4,daylight)*(1.0-wetness*0.58)
 	_sun.light_color = Color("f5f4ee").lerp(Color("ffdfba"),golden_hour).lerp(Color("c6d5df"),wetness)
-	_environment.ambient_light_energy = lerpf(0.13,0.30,daylight)
+	# Mobile has no dynamic GI. A calibrated sky/bounce fill preserves road and
+	# body-panel detail inside the long building shadows at the 17:00 preset.
+	_environment.ambient_light_energy = lerpf(0.18,0.95,daylight)
 	# DEPTH fog density is maximum opacity. Exponential densities such as .001
 	# would make this mode effectively invisible and expose the streamed horizon.
 	_environment.fog_depth_begin = [70.0,130.0,180.0][quality]*(1.0-wetness*0.55)
