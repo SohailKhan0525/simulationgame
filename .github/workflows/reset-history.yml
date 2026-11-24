@@ -1,0 +1,54 @@
+name: Reset repository history once
+
+on:
+  push:
+    branches: [main]
+    paths: [tools/history-bootstrap.trigger]
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact current main SHA containing the reviewed Qofeno Drive files
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: qofeno-history-reset
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    if: >-
+      github.repository == 'SohailKhan0525/simulationgame' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && github.event.head_commit.message == 'feat: bootstrap Qofeno Drive'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the exact reviewed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || inputs.expected_main_sha }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Replace main ancestry and remove only reviewed refs
+        id: reset
+        env:
+          EXPECTED_MAIN_SHA: ${{ github.event_name == 'push' && github.sha || inputs.expected_main_sha }}
+        run: bash tools/reset-history.sh "$EXPECTED_MAIN_SHA"
+      - name: Start the Android release on the new main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SIGNING_CONFIGURED: ${{ secrets.QOFENO_KEYSTORE_PASSWORD != '' }}
+        run: |
+          if [[ "$SIGNING_CONFIGURED" == 'true' ]]; then
+            gh workflow run android-release.yml --ref main
+          else
+            echo '::notice::History reset completed. Android release was not started because QOFENO_KEYSTORE_PASSWORD is not configured.'
+            echo 'Android release remains blocked until the signing password is configured. No debug key was substituted.' >> "$GITHUB_STEP_SUMMARY"
+          fi

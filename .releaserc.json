@@ -1,0 +1,23 @@
+{
+  "branches": ["main"],
+  "tagFormat": "v${version}",
+  "plugins": [
+    ["@semantic-release/commit-analyzer", {"releaseRules": [
+      {"breaking": true, "release": "major"},
+      {"type": "feat", "release": "minor"},
+      {"type": "*", "release": "patch"}
+    ]}],
+    "@semantic-release/release-notes-generator",
+    ["@semantic-release/exec", {"prepareCmd": "node tools/release.mjs ${nextRelease.version} && bash tools/build-android.sh"}],
+    ["@semantic-release/github", {
+      "successComment": false,
+      "failComment": false,
+      "releasedLabels": false,
+      "assets": [
+        {"path": "build/Qofeno-Drive.apk", "label": "Qofeno Drive · Android 8+ · ARM64 / x86_64"},
+        {"path": "build/Qofeno-Drive.apk.sha256", "label": "APK SHA-256 checksum"},
+        {"path": "build/update.json", "label": "In-game update manifest"}
+      ]
+    }]
+  ]
+}

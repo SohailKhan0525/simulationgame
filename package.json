@@ -1,0 +1,19 @@
+{
+  "name": "qofeno-drive-release",
+  "version": "0.0.0-development",
+  "private": true,
+  "description": "Release automation for Qofeno Drive",
+  "repository": "https://github.com/SohailKhan0525/simulationgame.git",
+  "engines": { "node": ">=22.14.0" },
+  "scripts": {
+    "release": "semantic-release",
+    "test:release": "node --test tools/release.test.mjs"
+  },
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "13.0.1",
+    "@semantic-release/exec": "7.1.0",
+    "@semantic-release/github": "11.0.6",
+    "@semantic-release/release-notes-generator": "14.1.1",
+    "semantic-release": "24.2.9"
+  }
+}

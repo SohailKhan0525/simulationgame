@@ -1,0 +1,14 @@
+.godot/
+build/
+.gradle/
+local.properties
+*.log
+node_modules/
+game/android/build/
+game/android/.build_version
+game/addons/qofeno_updater/bin/
+.qofeno*
+game/addons/qofeno_updater/*.aar
+android-plugin/build/
+android-plugin/.gradle/
+**/__pycache__/
