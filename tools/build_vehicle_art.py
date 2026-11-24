@@ -8,6 +8,8 @@ import bpy
 import bmesh
 import math
 import random
+import json
+import time
 from pathlib import Path
 from mathutils import Vector
 
@@ -19,6 +21,7 @@ SOURCE.mkdir(parents=True, exist_ok=True)
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 bpy.context.preferences.filepaths.save_version=0
+modifier_counts={'bevel_two_segments':0,'weighted_normal':0}
 
 def gv(p):
     return (p[0], -p[2], p[1])
@@ -36,7 +39,10 @@ def mat(name, color, rough=.5, metallic=0., emission=0.):
         bs.inputs['Emission Strength'].default_value=emission
     return m
 
-paint=mat('Paint',(.29,.39,.36),.26,.65)
+paint=mat('Paint',(.10,.17,.23),.22,.82)
+paint_bs=paint.node_tree.nodes.get('Principled BSDF')
+paint_bs.inputs['Coat Weight'].default_value=.8
+paint_bs.inputs['Coat Roughness'].default_value=.11
 leather=mat('Charcoal leather',(.045,.052,.056),.83)
 soft=mat('Soft touch graphite',(.085,.092,.094),.88)
 rubber=mat('Rubber',(.016,.019,.02),.94)
@@ -50,6 +56,23 @@ taillight=mat('Tail lamp',(.5,.012,.008),.27,0,.8)
 glass=mat('Exterior glass',(.10,.16,.18),.12,.15)
 glass.use_backface_culling=True
 
+# Procedural source detail is baked below; none of these noise nodes are required
+# by the runtime renderer. A separate coat keeps paint highlights smooth.
+def micro_surface(material, scale, distance, strength):
+    nodes=material.node_tree.nodes
+    bs=nodes.get('Principled BSDF')
+    noise=nodes.new('ShaderNodeTexNoise')
+    noise.inputs['Scale'].default_value=scale
+    noise.inputs['Detail'].default_value=2.
+    bump=nodes.new('ShaderNodeBump')
+    bump.inputs['Distance'].default_value=distance
+    bump.inputs['Strength'].default_value=strength
+    material.node_tree.links.new(noise.outputs['Fac'],bump.inputs['Height'])
+    material.node_tree.links.new(bump.outputs['Normal'],bs.inputs['Normal'])
+micro_surface(leather,380,.0012,.35)
+micro_surface(rubber,260,.0011,.3)
+micro_surface(paint,680,.00015,.12)
+
 # A small original, packed texture adds leather grain without expensive runtime noise.
 rng=random.Random(39)
 im=bpy.data.images.new('Aster leather grain',width=128,height=128)
@@ -60,7 +83,7 @@ for y in range(128):
         if rng.random()<.1: v*=.62
         pixels.extend((.065*v,.071*v,.075*v,1.))
 im.pixels=pixels
-im.filepath_raw=str(OUT/'leather_grain.png')
+im.filepath_raw=str(SOURCE/'leather_grain.png')
 im.file_format='PNG'
 im.save()
 im.pack()
@@ -102,12 +125,14 @@ def cube(name, at, size, material, parent, bevel=.01):
     if bevel:
         b=ob.modifiers.new('Soft manufactured edges','BEVEL')
         b.width=min(bevel,min(size)*.45)
-        b.segments=3
+        b.segments=2
+        modifier_counts['bevel_two_segments']+=1
         bpy.context.view_layer.objects.active=ob
         bpy.ops.object.modifier_apply(modifier=b.name)
         for f in ob.data.polygons:f.use_smooth=True
         n=ob.modifiers.new('Weighted corner normals','WEIGHTED_NORMAL')
         n.keep_sharp=True
+        modifier_counts['weighted_normal']+=1
         bpy.ops.object.modifier_apply(modifier=n.name)
     return ob
 
@@ -144,11 +169,32 @@ def loft(name, sections, material, parent):
     faces=[]
     for i in range(len(sections)-1):
         for j in range(6):
-            if name=='Sculpted body shell' and i in (3,4) and j==2:
-                continue
             faces.append((i*6+j,i*6+(j+1)%6,(i+1)*6+(j+1)%6,(i+1)*6+j))
     faces.extend((tuple(range(5,-1,-1)),tuple((len(sections)-1)*6+j for j in range(6))))
-    return mesh(name,v,faces,material,parent,True)
+    ob=mesh(name,v,faces,material,parent,True)
+    bm=bmesh.new();bm.from_mesh(ob.data)
+    bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces));bm.to_mesh(ob.data);bm.free()
+    return ob
+
+def finish_panel(ob, bevel=.012):
+    bpy.context.view_layer.objects.active=ob
+    b=ob.modifiers.new('Two segment panel bevel','BEVEL')
+    b.width=bevel;b.segments=2;b.limit_method='ANGLE'
+    modifier_counts['bevel_two_segments']+=1
+    bpy.ops.object.modifier_apply(modifier=b.name)
+    for f in ob.data.polygons:f.use_smooth=True
+    n=ob.modifiers.new('Weighted panel normals','WEIGHTED_NORMAL')
+    n.keep_sharp=True
+    modifier_counts['weighted_normal']+=1
+    bpy.ops.object.modifier_apply(modifier=n.name)
+    return ob
+
+def cut_panel(ob,cutter):
+    bpy.context.view_layer.objects.active=ob
+    boolean=ob.modifiers.new('Authored panel opening','BOOLEAN')
+    boolean.operation='DIFFERENCE';boolean.solver='EXACT';boolean.object=cutter
+    bpy.ops.object.modifier_apply(modifier=boolean.name)
+    bpy.data.objects.remove(cutter,do_unlink=True)
 
 def roof_panel():
     sections=[(-.43,.66,1.405),(-.23,.70,1.455),(.51,.70,1.46),(.84,.66,1.425),(1.01,.59,1.345)]
@@ -168,12 +214,15 @@ def roof_panel():
     bpy.context.view_layer.objects.active=roof
     bpy.ops.object.modifier_apply(modifier=mod.name)
 
-# A gently crowned bonnet, separate bumper, beltline and roof define a compact sedan.
-loft('Sculpted body shell',[(-1.99,.70,.14,.40),(-1.82,.85,.09,.49),(-1.2,.88,.06,.60),(-.65,.875,.06,.65),(.7,.875,.06,.65),(1.35,.85,.08,.59),(1.91,.76,.14,.45)],paint,body)
-# Remove the cabin opening from the shell's upper surfaces by using dark floor and cockpit
-# above it. The low shell top stays below the seated camera and instrument panel.
-loft('Bonnet',[(-1.93,.70,.40,.48),(-1.6,.83,.49,.58),(-.99,.81,.56,.62)],paint,body)
-loft('Rear boot',[(1.06,.79,.51,.60),(1.60,.80,.46,.58),(1.94,.72,.39,.49)],paint,body)
+# Short overhangs, real wheel-arch openings and separate cut lines define the hatch.
+shell=loft('Sculpted body shell',[(-1.99,.69,.12,.39),(-1.84,.82,.07,.48),(-1.46,.895,.025,.57),(-1.10,.895,.025,.62),(-.65,.86,.035,.65),(.66,.86,.035,.65),(1.24,.895,.025,.62),(1.60,.85,.07,.56),(1.91,.75,.14,.44)],paint,body)
+cut_panel(shell,cube('Cabin cutter',(0,1.05,.29),(1.48,1.35,1.92),black,body,0))
+for axle_z in [-1.28,1.28]:
+    bpy.ops.mesh.primitive_cylinder_add(vertices=48,radius=.375,depth=2.2,location=gv((0,-.10,axle_z)),rotation=(0,math.pi/2,0))
+    cut_panel(shell,bpy.context.object)
+finish_panel(shell,.009)
+finish_panel(loft('Bonnet',[(-1.93,.69,.40,.47),(-1.62,.80,.48,.57),(-1.02,.79,.55,.61)],paint,body),.014)
+finish_panel(loft('Rear boot',[(1.05,.78,.50,.60),(1.60,.79,.45,.57),(1.93,.71,.39,.48)],paint,body),.012)
 roof_panel()
 # The outward-facing glass is single-sided: it reads as glazing in exterior views,
 # while backface culling preserves the unobstructed cockpit view.
@@ -187,6 +236,22 @@ for x in [-.56,.56]:
     cube('Tail LED',(x,.49,1.95),(.37,.048,.012),taillight,body,.01)
 cube('Front splitter',(0,.135,-1.96),(1.51,.058,.09),rubber,body,.02)
 cube('Rear diffuser',(0,.14,1.94),(1.49,.07,.08),rubber,body,.015)
+cube('Hatch spoiler',(0,1.33,1.06),(1.25,.035,.19),paint,body,.012)
+for x in [-.47,.47]:
+    pipe('Exhaust rim',[(x,.15,1.96),(x,.15,2.00)],.047,aluminium,body,24)
+    pipe('Exhaust interior',[(x,.15,2.001),(x,.15,2.003)],.036,black,body,24)
+for x in [-.36,-.18,0,.18,.36]:
+    cube('Grille slat',(x,.29,-1.992),(.014,.088,.012),aluminium,body,.003)
+for side in [-1,1]:
+    for axle_z in [-1.28,1.28]:
+        arch=[]
+        for i in range(33):
+            a=math.pi*i/32
+            arch.append((side*.895,-.10+math.sin(a)*.386,axle_z+math.cos(a)*.386))
+        pipe('Wheel arch lip',arch,.012,paint,body,8)
+    pipe('Sill blade',[(side*.875,.10,-.82),(side*.878,.07,.0),(side*.875,.10,.82)],.024,rubber,body,8)
+    pipe('Hood cut line',[(side*.62,.486,-1.88),(side*.66,.584,-1.55),(side*.67,.617,-1.05)],.0015,black,body,6)
+    pipe('Door shut line',[(side*.873,.76,-.68),(side*.872,.50,-.69),(side*.868,.16,-.62)],.002,black,body,6)
 for side in [-1,1]:
     x=side*.84
     pipe('A pillar',[(side*.80,.82,-1.02),(side*.73,1.10,-.72),(side*.66,1.37,-.43)],.027,leather,body)
@@ -307,20 +372,173 @@ for parent in groups.values():
         bm=bmesh.new()
         bm.from_mesh(joined.data)
         bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces))
+        if material_name=='Exterior glass':
+            # An isolated open pane has no enclosed volume from which Blender can
+            # infer "outside". Explicitly orient front/rear panes toward the world;
+            # side panes already use their signed X side as the outward direction.
+            for face in bm.faces:
+                center=face.calc_center_median()
+                godot_z=-center.y
+                normal_z=-face.normal.y
+                if abs(center.x)<.1 and ((godot_z<0 and normal_z>0) or (godot_z>0 and normal_z<0)):
+                    face.normal_flip()
+            bm.normal_update()
         bm.to_mesh(joined.data)
         bm.free()
+        # Recalculation can reverse a face while leaving pre-join custom corner
+        # normals associated with its former winding. Refresh them after joining.
+        joined.data.normals_split_custom_set([(0,0,0)]*len(joined.data.loops))
+        if material_name!='Exterior glass':
+            weighted=joined.modifiers.new('Final consistent weighted normals','WEIGHTED_NORMAL')
+            weighted.keep_sharp=True
+            modifier_counts['weighted_normal']+=1
+            bpy.ops.object.modifier_apply(modifier=weighted.name)
         if not joined.data.uv_layers:
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.uv.smart_project(island_margin=.02)
             bpy.ops.object.mode_set(mode='OBJECT')
 
-bpy.ops.object.select_all(action='SELECT')
+def bake_shared_atlas():
+    """Cycles bakes actual geometry/materials to one non-overlapping 1024 atlas."""
+    original=[ob for parent in groups.values() for ob in parent.children if ob.type=='MESH']
+    materials=[];verts=[];faces=[];face_mats=[];smooth=[];ranges=[];loop_normals=[]
+    for ob in original:
+        start_loop=sum(len(f) for f in faces)
+        offset=len(verts)
+        shift=Vector((0,0,0))
+        if ob.parent==wheel:shift=Vector(gv((-.4,.81,-.39)))
+        if ob.parent==roadwheel:shift=Vector((3,0,0))
+        verts.extend([tuple(v.co+shift) for v in ob.data.vertices])
+        for poly in ob.data.polygons:
+            faces.append(tuple(offset+i for i in poly.vertices))
+            material=ob.data.materials[poly.material_index]
+            if material not in materials:materials.append(material)
+            face_mats.append(materials.index(material))
+            smooth.append(poly.use_smooth)
+        ranges.append((ob,start_loop,len(ob.data.loops)))
+        loop_normals.extend([tuple(n.vector) for n in ob.data.corner_normals])
+        ob.hide_render=True
+    me=bpy.data.meshes.new('AsterAtlasBakeMesh')
+    me.from_pydata(verts,[],faces);me.update()
+    target=bpy.data.objects.new('AsterAtlasBakeTarget',me)
+    bpy.context.collection.objects.link(target)
+    for material in materials:me.materials.append(material)
+    for i,poly in enumerate(me.polygons):
+        poly.material_index=face_mats[i];poly.use_smooth=smooth[i]
+    me.normals_split_custom_set(loop_normals)
+    bpy.ops.object.select_all(action='DESELECT');target.select_set(True)
+    bpy.context.view_layer.objects.active=target
+    bpy.ops.object.mode_set(mode='EDIT');bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.smart_project(angle_limit=math.radians(66),island_margin=.012)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    scene=bpy.context.scene
+    scene.render.engine='CYCLES';scene.cycles.samples=16;scene.cycles.use_denoising=False
+    scene.render.bake.margin=8;scene.render.bake.use_selected_to_active=False
+    scene.render.bake.normal_space='TANGENT'
+    scene.render.bake.normal_r='POS_X';scene.render.bake.normal_g='POS_Y';scene.render.bake.normal_b='POS_Z'
+    # Keep editable original procedural materials as named data-blocks in the blend.
+    for material in materials:
+        source=material.copy();source.name=material.name+'.source';source.use_fake_user=True
+    images={};report=[]
+    for channel,bake_type in [('albedo','EMIT'),('normal','NORMAL'),('roughness','ROUGHNESS'),('ao','AO')]:
+        image=bpy.data.images.new('aster_'+channel,width=1024,height=1024,alpha=False)
+        image.colorspace_settings.name='sRGB' if channel=='albedo' else 'Non-Color'
+        swaps=[]
+        for material in materials:
+            nodes=material.node_tree.nodes;links=material.node_tree.links
+            tex=nodes.new('ShaderNodeTexImage');tex.name='ATLAS_TARGET_'+channel;tex.image=image
+            nodes.active=tex
+            if channel=='albedo':
+                bs=nodes.get('Principled BSDF');out=nodes.get('Material Output')
+                emission=nodes.new('ShaderNodeEmission')
+                if material==paint:
+                    emission.inputs['Color'].default_value=(1,1,1,1)
+                elif bs.inputs['Base Color'].is_linked:
+                    links.new(bs.inputs['Base Color'].links[0].from_socket,emission.inputs['Color'])
+                else:emission.inputs['Color'].default_value=bs.inputs['Base Color'].default_value
+                links.new(emission.outputs[0],out.inputs['Surface'])
+                swaps.append((material,bs,emission))
+        began=time.monotonic()
+        bpy.ops.object.bake(type=bake_type,use_clear=True,margin=8)
+        for material,bs,emission in swaps:
+            material.node_tree.links.new(bs.outputs['BSDF'],material.node_tree.nodes.get('Material Output').inputs['Surface'])
+            material.node_tree.nodes.remove(emission)
+        image.filepath_raw=str(OUT/('aster_'+channel+'.png'));image.file_format='PNG';image.save();image.pack()
+        images[channel]=image
+        report.append({'channel':channel,'blender_bake_type':bake_type,'size':[1024,1024],'seconds':round(time.monotonic()-began,3),'path':'game/assets/vehicles/aster_'+channel+'.png'})
+        print('BAKED',channel,report[-1]['seconds'],flush=True)
+    atlas=me.uv_layers.active.data
+    for ob,start,count in ranges:
+        uv=ob.data.uv_layers.active or ob.data.uv_layers.new(name='AtlasUV')
+        for i in range(count):uv.data[i].uv=atlas[start+i].uv
+        ob.hide_render=False
+    bpy.data.objects.remove(target,do_unlink=True)
+    # Preview/export materials use the same real baked maps. Runtime loads these
+    # four external PNGs once; exports intentionally omit embedded image copies.
+    for material in materials:
+        nodes=material.node_tree.nodes;links=material.node_tree.links;bs=nodes.get('Principled BSDF')
+        for channel,image in images.items():
+            tex=nodes.get('ATLAS_TARGET_'+channel)
+            if channel=='albedo':
+                if material==paint:
+                    tint=nodes.new('ShaderNodeMixRGB');tint.blend_type='MULTIPLY';tint.inputs[0].default_value=1
+                    tint.inputs[2].default_value=material.diffuse_color
+                    links.new(tex.outputs['Color'],tint.inputs[1]);links.new(tint.outputs[0],bs.inputs['Base Color'])
+                else:links.new(tex.outputs['Color'],bs.inputs['Base Color'])
+            elif channel=='roughness':links.new(tex.outputs['Color'],bs.inputs['Roughness'])
+            elif channel=='normal':
+                normal=nodes.new('ShaderNodeNormalMap');normal.space='TANGENT'
+                links.new(tex.outputs['Color'],normal.inputs['Color']);links.new(normal.outputs['Normal'],bs.inputs['Normal'])
+        # glTF's named output group communicates a baked occlusion map to viewers.
+        tree=bpy.data.node_groups.get('glTF Material Output')
+        if tree is None:
+            tree=bpy.data.node_groups.new('glTF Material Output','ShaderNodeTree')
+            tree.interface.new_socket(name='Occlusion',in_out='INPUT',socket_type='NodeSocketFloat')
+        ao=nodes.new('ShaderNodeGroup');ao.node_tree=tree
+        links.new(nodes.get('ATLAS_TARGET_ao').outputs['Color'],ao.inputs['Occlusion'])
+    return report
+
+bake_report=bake_shared_atlas()
+# Tangent generation requires triangles. Keep this modifier editable in the blend;
+# export_apply evaluates it for the clean runtime mesh without rebaking its UVs.
+for parent in groups.values():
+    for ob in parent.children:
+        if ob.type=='MESH':
+            tri=ob.modifiers.new('Runtime tangent triangulation','TRIANGULATE')
+            if hasattr(tri,'keep_custom_normals'):tri.keep_custom_normals=True
+wheel_mounts={'FL':(-.82,-.20,-1.28),'FR':(.82,-.20,-1.28),'RL':(-.82,-.20,1.28),'RR':(.82,-.20,1.28)}
+wheel_roots={}
+for suffix,position in wheel_mounts.items():
+    root=group('Wheel_'+suffix)
+    root.location=gv(position)
+    root['axle_axis']='X';root['spin_axis']='X';root['steering_axis']='Y'
+    root['mount_godot']=list(position)
+    for original in roadwheel.children:
+        ob=original.copy();ob.data=original.data;ob.parent=root
+        bpy.context.collection.objects.link(ob)
+    wheel_roots[suffix]=root
+for child in list(roadwheel.children):bpy.data.objects.remove(child,do_unlink=True)
+bpy.data.objects.remove(roadwheel,do_unlink=True)
+del groups['RoadWheel']
+# The source blend presents the steering wheel at its installed position.
+wheel.location=gv((-.4,.81,-.39))
 bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/'aster_cabin.blend'))
-bpy.ops.export_scene.gltf(filepath=str(OUT/'aster_cabin.glb'),export_format='GLB',use_selection=True,export_yup=True,export_apply=True,export_materials='EXPORT',export_cameras=False,export_lights=False)
+
+def export_roots(path,roots):
+    bpy.ops.object.select_all(action='DESELECT')
+    saved=[]
+    for root in roots:
+        saved.append((root,root.location.copy()));root.location=(0,0,0);root.select_set(True)
+        for child in root.children_recursive:child.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',use_selection=True,export_yup=True,export_apply=True,export_materials='EXPORT',export_image_format='NONE',export_cameras=False,export_lights=False,export_extras=True,export_tangents=True)
+    for root,position in saved:root.location=position
+
+export_roots(OUT/'aster_cabin.glb',[body,cabin,wheel])
+for suffix,root in wheel_roots.items():export_roots(OUT/('aster_wheel_'+suffix.lower()+'.glb'),[root])
 triangles=0
 for ob in bpy.data.objects:
-    if ob.type=='MESH':
-        ob.data.calc_loop_triangles()
-        triangles+=len(ob.data.loop_triangles)
-print(f'ASTER_ART_COMPLETE triangles={triangles} glb_bytes={(OUT/"aster_cabin.glb").stat().st_size}')
+    if ob.type=='MESH':ob.data.calc_loop_triangles();triangles+=len(ob.data.loop_triangles)
+report={'generator':'tools/build_vehicle_art.py','blender_version':bpy.app.version_string,'bake_engine':'CYCLES','bake_samples':16,'atlas_resolution':[1024,1024],'normal_convention':'tangent +X +Y +Z','tangents_exported':True,'maps':bake_report,'modifiers_applied':modifier_counts,'triangles_source_total':triangles,'wheels':{key:{'source_axle_center_godot':list(position),'glb_root_translation':[0,0,0],'local_axle_axis':'X','spin_axis':'X','steer_axis':'Y','glb':'game/assets/vehicles/aster_wheel_'+key.lower()+'.glb'} for key,position in wheel_mounts.items()},'body_glb':'game/assets/vehicles/aster_cabin.glb','textures_embedded_in_glb':False}
+(OUT/'asset_report.json').write_text(json.dumps(report,indent=2)+'\n')
+print(f'ASTER_ART_COMPLETE triangles={triangles} glb_bytes={(OUT/"aster_cabin.glb").stat().st_size}',flush=True)

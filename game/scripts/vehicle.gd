@@ -7,7 +7,15 @@ var throttle: float = 0.0
 var brake: float = 0.0
 var steer: float = 0.0
 var handbrake: bool = false
-var enabled: bool = false
+var enabled: bool = false:
+	set(value):
+		enabled = value
+		if not enabled:
+			effective_brake = 0.0
+			rear_tire_slip = Vector2.ZERO
+			downforce_newtons = 0.0
+			if is_instance_valid(_effects):
+				_effects.reset_effects()
 var wetness: float = 0.0
 var volume: float = 0.7
 var fuel_liters: float = 42.0
@@ -19,6 +27,18 @@ var distance_m: float = 0.0
 var car_index: int = 0
 var upgrade_level: int = 0
 var cockpit_camera: Camera3D
+var chase_camera: Camera3D
+var reflection_probe: ReflectionProbe
+## 0 = cockpit, 1 = chase. Main owns which camera becomes current.
+var camera_mode: int = 1
+var base_fov: float = 65.0
+var effective_brake: float = 0.0
+var grounded_wheels: int = 0
+var rear_tire_slip := Vector2.ZERO
+var rear_grounded := Vector2.ZERO
+var rear_contact_points := PackedVector3Array([Vector3.ZERO, Vector3.ZERO])
+var downforce_coefficient: float = 1.8
+var downforce_newtons: float = 0.0
 
 const CAR_NAMES := ["Aster S", "Meridian GT", "Veloce R"]
 const WHEEL_RADIUS: float = 0.32
@@ -51,6 +71,9 @@ var _passenger_coat: StandardMaterial3D
 var _wiper_pivots: Array[Node3D] = []
 var _wiper_clock: float = 0.0
 var _wiper_angle: float = deg_to_rad(-73.0)
+var _camera_rig: Node3D
+var _effects: Node3D
+const VehicleArt = preload("res://scripts/vehicle_art.gd")
 
 func _ready() -> void:
 	mass = 1280.0
@@ -76,6 +99,16 @@ func _ready() -> void:
 	physics_material.bounce = 0.05
 	physics_material_override = physics_material
 	_build_visuals()
+	_camera_rig = load("res://scripts/vehicle_camera.gd").new()
+	_camera_rig.target = self
+	_camera_rig.base_fov = base_fov
+	add_child(_camera_rig)
+	chase_camera = _camera_rig.camera
+	_camera_rig.reset_fov(cockpit_camera)
+	_effects = load("res://scripts/vehicle_fx.gd").new()
+	_effects.target = self
+	add_child(_effects)
+	reflection_probe = _effects.probe
 	_engine_audio = load("res://scripts/vehicle_audio.gd").new()
 	add_child(_engine_audio)
 	configure(car_index, upgrade_level)
@@ -89,12 +122,48 @@ func configure(selected_car: int, upgrades: int) -> void:
 	if _paint != null:
 		_paint.albedo_color = [Color("526772"), Color("b94429"), Color("d8d2c1")][car_index]
 
+func set_camera_mode(value: int, make_current: bool = true) -> void:
+	camera_mode = clampi(value, 0, 1)
+	if camera_mode == 1 and is_instance_valid(_camera_rig):
+		_camera_rig.snap()
+	if make_current:
+		var selected := get_active_camera()
+		if is_instance_valid(selected): selected.make_current()
+
+func get_active_camera() -> Camera3D:
+	return cockpit_camera if camera_mode == 0 else chase_camera
+
+func set_base_fov(degrees: float) -> void:
+	# Default65 reaches82 at160km/h. A user-adjusted base keeps the same17-degree
+	# speed range; both views share the setting and remain switchable at any speed.
+	base_fov = clampf(degrees, 50.0, 90.0)
+	if is_instance_valid(_camera_rig):
+		_camera_rig.base_fov = base_fov
+
+func set_camera_far(distance: float) -> void:
+	var far_distance := maxf(50.0, distance)
+	if is_instance_valid(cockpit_camera): cockpit_camera.far = far_distance
+	if is_instance_valid(chase_camera): chase_camera.far = far_distance
+
+func set_visual_quality(value: int) -> void:
+	if is_instance_valid(_effects): _effects.set_quality(value)
+
 func reset_to(world_position: Vector3, yaw: float = 0.0) -> void:
 	_reset_transform = Transform3D(Basis(Vector3.UP, yaw), world_position)
 	_reset_pending = true
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	global_transform = _reset_transform
+	speed_kmh = 0.0
+	effective_brake = 0.0
+	grounded_wheels = 0
+	rear_tire_slip = Vector2.ZERO
+	rear_grounded = Vector2.ZERO
+	downforce_newtons = 0.0
+	if is_instance_valid(_camera_rig):
+		_camera_rig.snap()
+		_camera_rig.reset_fov(cockpit_camera)
+	if is_instance_valid(_effects): _effects.reset_effects()
 	sleeping = false
 
 func set_passenger(active: bool, passenger_kind: String = "commuter") -> void:
@@ -140,6 +209,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		acceleration_input = 0.0
 	# A resting thumb on DRIVE must not fight the brake under the other thumb.
 	acceleration_input *= 1.0 - brake_input
+	effective_brake = maxf(brake_input, 1.0 if handbrake else 0.0) if enabled else 0.0
 	var target_steer: float = clampf(steer, -1.0, 1.0) if enabled else 0.0
 	var road_speed: float = absf(longitudinal_speed)
 	var returning: bool = is_zero_approx(target_steer) or target_steer * _steering_input < 0.0
@@ -150,6 +220,9 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	var steering_limit: float = clampf(atan(2.56 * 8.5 / maxf(1.0, road_speed * road_speed)), 0.005, 0.54)
 	_steering = -_steering_input * steering_limit
 	var contacts: int = 0
+	var ground_normal := Vector3.ZERO
+	rear_tire_slip = Vector2.ZERO
+	rear_grounded = Vector2.ZERO
 	for index in range(4):
 		var mount: Vector3 = WHEEL_MOUNTS[index]
 		var ray_origin: Vector3 = state.transform * mount
@@ -167,12 +240,20 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			var normal_force: float = clampf(compression * 32000.0 - velocity_at_contact.dot(up) * 3900.0, 0.0, 18000.0)
 			if normal_force > 0.0 and normal.dot(up) > 0.35:
 				contacts += 1
+				ground_normal += normal
 				state.apply_force(up * normal_force, ray_origin - state.transform.origin)
 				var tire_forward: Vector3 = forward.rotated(up, _steering if index < 2 else 0.0)
 				tire_forward = tire_forward.slide(normal).normalized()
 				var tire_right: Vector3 = tire_forward.cross(normal).normalized()
 				var forward_speed: float = velocity_at_contact.dot(tire_forward)
 				var side_speed: float = velocity_at_contact.dot(tire_right)
+				if index >= 2:
+					var rear_index := index - 2
+					rear_grounded[rear_index] = 1.0
+					rear_contact_points[rear_index] = contact
+					var slide := clampf((absf(side_speed) - 1.8) / 5.0, 0.0, 1.0)
+					var locked := clampf((absf(forward_speed) - 5.0) / 12.0, 0.0, 1.0) if handbrake else 0.0
+					rear_tire_slip[rear_index] = maxf(slide, locked) * (1.0 - clampf(wetness, 0.0, 1.0) * 0.75) if enabled else 0.0
 				var grip: float = lerpf(1.25, 0.77, clampf(wetness, 0.0, 1.0))
 				if enabled and handbrake and index >= 2:
 					grip *= 0.5
@@ -197,7 +278,14 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			_wheel_meshes[index].rotation.x = _wheel_spin
 	var velocity: Vector3 = state.linear_velocity
 	state.apply_central_force(-velocity * velocity.length() * 0.42)
+	grounded_wheels = contacts
+	downforce_newtons = 0.0
 	if contacts >= 2:
+		# Modest speed-squared aero load only while supported by the road. Capping
+		# it at28% of weight avoids pinning the car down or accelerating an airborne car.
+		if enabled and up.dot(Vector3.UP) > 0.35 and road_speed > 5.0:
+			downforce_newtons = minf(maxf(0.0, downforce_coefficient) * road_speed * road_speed, mass * 9.8 * 0.28)
+			state.apply_central_force(-ground_normal.normalized() * downforce_newtons)
 		# Gentle anti-roll assistance retains bumps and weight transfer without easy mobile rollovers.
 		var upright_error: Vector3 = up.cross(Vector3.UP)
 		state.apply_torque(upright_error * 3600.0 - Vector3(state.angular_velocity.x, 0, state.angular_velocity.z) * 900.0)
@@ -220,6 +308,11 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	rpm = lerpf(rpm, target_rpm, minf(1.0, dt * 9.0)) if fuel_liters > 0.0 else 0.0
 
 func _process(delta: float) -> void:
+	if is_instance_valid(_camera_rig):
+		_camera_rig.update_fov(delta, speed_kmh, cockpit_camera)
+	if is_instance_valid(_effects):
+		_effects.update_effects(delta, rear_tire_slip, rear_contact_points, rear_grounded, enabled and not freeze)
+	VehicleArt.update_lights(self, effective_brake, headlights_on)
 	if wetness > 0.25:
 		_wiper_clock += delta * lerpf(0.65, 1.35, clampf(wetness, 0.0, 1.0))
 		# Ease at each end of the sweep, like a linked wiper motor.
@@ -457,7 +550,7 @@ func _build_visuals() -> void:
 	cockpit_camera.current = false
 	add_child(cockpit_camera)
 
-	load("res://scripts/vehicle_art.gd").install(self)
+	VehicleArt.install(self)
 
 func _dial(parent: Node3D, at: Vector3, title: String, luminous: Material, background: Material) -> Node3D:
 	var disc := _cylinder(parent, 0.086, 0.008, at, background, 32)

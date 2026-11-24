@@ -1,0 +1,48 @@
+{
+  "bake_resolution": 1024,
+  "bake_samples": 16,
+  "bake_engine": "Cycles CPU",
+  "bake_channels": [
+    "albedo",
+    "normal",
+    "roughness",
+    "ao"
+  ],
+  "bevel_segments": 2,
+  "bevel_applied": 18,
+  "weighted_normals_applied": 18,
+  "assets": {
+    "brick_corner": {
+      "triangles": 5932,
+      "material_batches": 5
+    },
+    "limestone_midrise": {
+      "triangles": 8920,
+      "material_batches": 5
+    },
+    "brick_lowrise": {
+      "triangles": 4180,
+      "material_batches": 5
+    },
+    "street_plane_tree": {
+      "triangles": 896,
+      "material_batches": 2
+    },
+    "roadside_shrub": {
+      "triangles": 10,
+      "material_batches": 1
+    },
+    "roadside_rock": {
+      "triangles": 80,
+      "material_batches": 1
+    },
+    "road_slab": {
+      "triangles": 108,
+      "material_batches": 1
+    },
+    "kerbstone": {
+      "triangles": 108,
+      "material_batches": 1
+    }
+  }
+}

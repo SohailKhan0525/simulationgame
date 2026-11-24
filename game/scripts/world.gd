@@ -10,7 +10,11 @@ const STREET_ASSETS := {
 	"brick_corner": "res://assets/world/brick_corner.glb",
 	"limestone_midrise": "res://assets/world/limestone_midrise.glb",
 	"brick_lowrise": "res://assets/world/brick_lowrise.glb",
-	"street_plane_tree": "res://assets/world/street_plane_tree.glb"
+	"street_plane_tree": "res://assets/world/street_plane_tree.glb",
+	"roadside_shrub": "res://assets/world/roadside_shrub.glb",
+	"roadside_rock": "res://assets/world/roadside_rock.glb",
+	"road_slab": "res://assets/world/road_slab.glb",
+	"kerbstone": "res://assets/world/kerbstone.glb"
 }
 var ready_for_drive := false
 var rival_finished := false
@@ -41,6 +45,7 @@ var _last_light_phase := -1
 var _stream_timer := 0.0
 var _prepared := false
 var _asset_parts: Dictionary = {}
+var _mobile_renderer := false
 
 func _ready() -> void:
 	_prepare()
@@ -86,6 +91,15 @@ func _prepare() -> void:
 	_materials.glass.shader = load("res://scripts/world_glass.gdshader")
 	_materials.leaf = ShaderMaterial.new()
 	_materials.leaf.shader = load("res://scripts/world_foliage.gdshader")
+	_materials.leaf.set_shader_parameter("leaf_atlas",load("res://assets/world/foliage_atlas.png"))
+	_materials.pbr_brick = _pbr_material("masonry",Color.WHITE)
+	_materials.pbr_stone = _pbr_material("mineral",Color("ddd9ce"))
+	_materials.pbr_limestone = _pbr_material("mineral",Color("fff2d9"))
+	for surface in [_materials.road,_materials.sidewalk]:
+		surface.set_shader_parameter("mineral_albedo",load("res://assets/world/mineral_albedo.png"))
+		surface.set_shader_parameter("mineral_normal",load("res://assets/world/mineral_normal.png"))
+		surface.set_shader_parameter("mineral_roughness",load("res://assets/world/mineral_roughness.png"))
+		surface.set_shader_parameter("mineral_ao",load("res://assets/world/mineral_ao.png"))
 	for asset_id in STREET_ASSETS:
 		var packed: PackedScene = load(STREET_ASSETS[asset_id])
 		var source := packed.instantiate()
@@ -107,23 +121,44 @@ func _prepare() -> void:
 	sky.sky_material = _sky
 	_environment.sky = sky
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	_environment.ambient_light_color = Color("b6c4ce")
+	_environment.ambient_light_color = Color("9facbf")
 	_environment.ambient_light_energy = 0.30
 	_environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	_environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	_mobile_renderer = RenderingServer.get_current_rendering_method() == "mobile"
+	# Godot 4.5 Mobile has an HDR ceiling of 2.0; AgX fixes white at 16.29.
+	# The official renderer guide calls AgX unsuitable there. Keep AgX for the
+	# other renderers and use ACES with a calibrated white point on Mobile.
+	_environment.tonemap_mode = Environment.TONE_MAPPER_ACES if _mobile_renderer else Environment.TONE_MAPPER_AGX
+	_environment.tonemap_white = 2.0 if _mobile_renderer else 8.0
+	_environment.tonemap_exposure = 1.0
+	_environment.glow_enabled = quality > 0
+	_environment.glow_hdr_threshold = 0.95 if _mobile_renderer else 1.1
+	_environment.glow_intensity = 0.32 if _mobile_renderer else 0.18
+	_environment.glow_strength = 0.75
+	_environment.glow_bloom = 0.0
+	_environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	_environment.fog_enabled = true
-	_environment.fog_density = 0.0012
+	_environment.fog_mode = Environment.FOG_MODE_DEPTH
+	_environment.fog_depth_curve = 1.65
+	_environment.fog_density = 0.94
 	_environment.fog_light_color = Color("a5b9c2")
-	_environment.fog_sky_affect = 0.22
+	_environment.fog_sky_affect = 0.10
+	_environment.fog_sun_scatter = 0.12
 	var env_node := WorldEnvironment.new()
 	env_node.environment = _environment
 	add_child(env_node)
 	_sun = DirectionalLight3D.new()
-	_sun.rotation_degrees = Vector3(-25,-35,0)
-	_sun.light_color = Color("ffe0ad")
+	_sun.rotation_degrees = Vector3(-20,-35,0)
+	_sun.light_color = Color("ffdfba")
 	_sun.light_energy = 0.9
 	_sun.shadow_enabled = true
 	_sun.directional_shadow_max_distance = 150
+	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	_sun.directional_shadow_split_1 = 0.18
+	_sun.directional_shadow_fade_start = 0.85
+	_sun.shadow_bias = 0.035
+	_sun.shadow_normal_bias = 0.6
+	_sun.shadow_blur = 0.75
 	add_child(_sun)
 	_rain = CPUParticles3D.new()
 	_rain.amount = 500
@@ -160,11 +195,42 @@ func _material(color: Color, roughness: float, metallic: float = 0.0, emission: 
 		mat.emission = emission
 	return mat
 
+func _pbr_material(prefix: String,tint: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.albedo_texture = load("res://assets/world/%s_albedo.png" % prefix)
+	mat.normal_enabled = true
+	mat.normal_texture = load("res://assets/world/%s_normal.png" % prefix)
+	mat.normal_scale = 0.7
+	mat.roughness = 1.0
+	mat.roughness_texture = load("res://assets/world/%s_roughness.png" % prefix)
+	mat.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+	mat.ao_enabled = true
+	mat.ao_texture = load("res://assets/world/%s_ao.png" % prefix)
+	mat.ao_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+	mat.ao_light_affect = 0.12
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	return mat
+
+func _asset_material(source: Material) -> Material:
+	if not source: return null
+	var label := source.resource_name.to_lower()
+	if label.contains("glazing"): return _materials.glass
+	if label.contains("cutout"): return _materials.leaf
+	if label.contains("umber"): return _materials.pbr_brick
+	if label.contains("limestone"): return _materials.pbr_limestone
+	if label.contains("concrete"): return _materials.pbr_stone
+	return source
+
 func _collect_asset_meshes(node: Node, parent_transform: Transform3D, parts: Array) -> void:
 	var transform := parent_transform
 	if node is Node3D: transform = parent_transform * node.transform
 	if node is MeshInstance3D and node.mesh:
-		parts.append({"mesh":node.mesh,"transform":transform,"material":node.mesh.surface_get_material(0)})
+		# Replace embedded duplicates with the same eight shared PBR texture resources.
+		var shared_mesh: Mesh = node.mesh.duplicate()
+		for surface_index in shared_mesh.get_surface_count():
+			shared_mesh.surface_set_material(surface_index,_asset_material(shared_mesh.surface_get_material(surface_index)))
+		parts.append({"mesh":shared_mesh,"transform":transform,"material":shared_mesh.surface_get_material(0)})
 	for child in node.get_children(): _collect_asset_meshes(child,transform,parts)
 
 func _batch_asset(parent: Node3D,asset_id: String,placements: Array[Transform3D]) -> void:
@@ -173,22 +239,24 @@ func _batch_asset(parent: Node3D,asset_id: String,placements: Array[Transform3D]
 	for part in _asset_parts[asset_id]:
 		var transforms: Array[Transform3D] = []
 		for placement in placements: transforms.append(placement * part.transform)
-		var override: Material = null
-		if part.material and part.material.resource_name.contains("glazing"): override = _materials.glass
-		var batch := _multimesh(parent,part.mesh,override,transforms,[])
+		var batch := _multimesh(parent,part.mesh,null,transforms,[])
 		batch.name = asset_id
 		batch.set_meta("authored_asset",true)
 		# Shared imported geometry is instanced once per chunk/material, not per window.
-		batch.visibility_range_end = detail_distance
+		batch.visibility_range_end = minf(detail_distance,[85.0,125.0,175.0][quality]) if asset_id == "roadside_shrub" else detail_distance
+		if asset_id == "roadside_shrub": batch.set_meta("groundcover",true)
 		batch.visibility_range_end_margin = 8.0
 	# At distance, complete blocks use a cheap facade mesh; source detail stays nearby.
 	# Godot's importer additionally generates mesh LODs for each authored GLB.
-	if asset_id == "street_plane_tree": return
+	if asset_id in ["street_plane_tree","roadside_shrub","roadside_rock"]: return
 	var height := 20.0
-	var color := Color("996a50")
+	# The proxy shader receives linear instance colors, unlike sRGB PBR textures.
+	# Match the baked mean after its 0.57 average facade modulation to avoid a
+	# bright color jump at the geometry detail boundary.
+	var color := Color(0.079,0.029,0.018)
 	if asset_id == "limestone_midrise":
 		height = 33.0
-		color = Color("c0b4a0")
+		color = Color(0.117,0.097,0.060)
 	elif asset_id == "brick_lowrise": height = 14.0
 	var proxies: Array[Transform3D] = []
 	var colors: Array[Color] = []
@@ -215,12 +283,16 @@ func set_quality(value: int) -> void:
 	if _prepared:
 		_sun.shadow_enabled = quality > 0
 		_sun.directional_shadow_max_distance = 180 if quality == 2 else 100
+		_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if quality == 2 else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+		_environment.glow_enabled = quality > 0
 		_rain.amount = [180,400,650][quality]
 		set_weather(wetness,hour)
 		if is_instance_valid(_traffic): _traffic.set("car_count",[10,18,28][quality])
 		for chunk in _chunks.values():
 			for node in chunk.get_children():
 				if node.has_meta("authored_asset"): node.visibility_range_end = [145.0,205.0,285.0][quality]
+				if node.has_meta("groundcover"): node.visibility_range_end = [85.0,125.0,175.0][quality]
+				if node.has_meta("distant_grounddetail"): node.visibility_range_begin = [85.0,125.0,175.0][quality]
 				if node.has_meta("distant_asset"): node.visibility_range_begin = [145.0,205.0,285.0][quality]
 		_queue_chunks(_tile_at(player.global_position) if is_instance_valid(player) else Vector2i.ZERO)
 
@@ -300,17 +372,22 @@ func set_weather(rain_amount: float, time_of_day: float) -> void:
 	wetness = clampf(rain_amount,0,1)
 	hour = fposmod(time_of_day,24.0)
 	if not _prepared: return
-	var daylight := clampf(sin((hour-6.0)/24.0*TAU)*1.5,0.0,1.0)
-	var sunset := 1.0-absf(daylight-0.45)
-	_sun.rotation_degrees = Vector3(-maxf(8,sin((hour-6.0)/24.0*TAU)*65),-35,0)
-	_sun.light_energy = lerpf(0.08,0.82,daylight)*(1.0-wetness*0.55)
-	_sun.light_color = Color("ffe7c4").lerp(Color("ffd09b"),sunset*0.5).lerp(Color("c6d5df"),wetness)
-	_environment.ambient_light_energy = lerpf(0.18,0.32,daylight)
-	_environment.fog_density = lerpf(0.0014,0.0045,wetness)
-	if quality == 0: _environment.fog_density = maxf(_environment.fog_density,0.0065)
-	_environment.fog_light_color = Color("3c5366").lerp(Color("8d9ba4"),daylight)
+	var solar := sin((hour-6.0)/24.0*TAU)
+	var daylight := clampf(solar*3.0,0.0,1.0)
+	var golden_hour := clampf(1.0-absf(hour-17.0)/3.0,0.0,1.0)
+	# 77.274066 * sin(165 degrees) = 20 degrees at the 17:00 golden-hour preset.
+	_sun.rotation_degrees = Vector3(-maxf(8.0,solar*77.274066),-35,0)
+	_sun.light_energy = lerpf(0.06,1.0,daylight)*(1.0-wetness*0.58)
+	_sun.light_color = Color("f5f4ee").lerp(Color("ffdfba"),golden_hour).lerp(Color("c6d5df"),wetness)
+	_environment.ambient_light_energy = lerpf(0.13,0.30,daylight)
+	# DEPTH fog density is maximum opacity. Exponential densities such as .001
+	# would make this mode effectively invisible and expose the streamed horizon.
+	_environment.fog_depth_begin = [70.0,130.0,180.0][quality]*(1.0-wetness*0.55)
+	_environment.fog_depth_end = [205.0,360.0,520.0][quality]*(1.0-wetness*0.35)
+	_environment.fog_density = lerpf(0.94,0.98,wetness)
+	_environment.fog_light_color = Color("2e4057").lerp(Color("b7b7b2"),daylight).lerp(Color("d6bb98"),golden_hour*daylight*0.28)
 	_sky.sky_top_color = Color("101e34").lerp(Color("3e7298"),daylight).lerp(Color("73828b"),wetness*0.8)
-	_sky.sky_horizon_color = Color("273b50").lerp(Color("a7b9c5"),daylight).lerp(Color("9ba7aa"),wetness)
+	_sky.sky_horizon_color = Color("273b50").lerp(Color("b7c5cb"),daylight).lerp(Color("d7bfa0"),golden_hour*daylight*0.6).lerp(Color("9ba7aa"),wetness)
 	_sky.ground_horizon_color = _sky.sky_horizon_color
 	_materials.road.set_shader_parameter("wetness",wetness)
 	_materials.building.set_shader_parameter("night_amount",1.0-daylight*0.8)
@@ -331,9 +408,9 @@ func _make_chunk(key: Vector2i) -> Node3D:
 	_collision_box(ground,Vector3(0,-0.5,0),Vector3(TILE,1,TILE))
 	_mesh_box(root,Vector3(0,-0.1,0),Vector3(TILE,0.2,TILE),_materials.ground)
 	var road_transforms: Array[Transform3D] = []
-	road_transforms.append(_xform(Vector3(0,0.007,0),Vector3(22,0.02,TILE)))
-	road_transforms.append(_xform(Vector3(0,0.008,0),Vector3(TILE,0.02,22)))
-	_multimesh(root,_box,_materials.road,road_transforms,[])
+	road_transforms.append(Transform3D(Basis.IDENTITY,Vector3(0,-0.032,0)))
+	road_transforms.append(Transform3D(Basis(Vector3.UP,PI*0.5),Vector3(0,-0.031,0)))
+	_multimesh(root,_asset_parts.road_slab[0].mesh,_materials.road,road_transforms,[])
 	var stripe_transforms: Array[Transform3D] = []
 	var center_transforms: Array[Transform3D] = []
 	for d in range(-75,80,12):
@@ -358,7 +435,10 @@ func _make_chunk(key: Vector2i) -> Node3D:
 	var stone_blocks: Array[Transform3D] = []
 	var low_blocks: Array[Transform3D] = []
 	var trees: Array[Transform3D] = []
+	var shrubs: Array[Transform3D] = []
+	var rocks: Array[Transform3D] = []
 	var curb_transforms: Array[Transform3D] = []
+	var distant_curb_transforms: Array[Transform3D] = []
 	var street_details: Array[Transform3D] = []
 	var sidewalk_transforms: Array[Transform3D] = []
 	var is_station := posmod(key.x,4)==0 and posmod(key.y,4)==0
@@ -368,8 +448,12 @@ func _make_chunk(key: Vector2i) -> Node3D:
 			var lot := Vector3(sx*47,0,sz*47)
 			sidewalk_transforms.append(_xform(lot+Vector3(0,0.085,0),Vector3(66,0.17,66)))
 			# Raised continuous curb and pedestrian pavement along each block face.
-			curb_transforms.append(_xform(Vector3(sx*13.5,0.13,sz*47),Vector3(0.45,0.26,66)))
-			curb_transforms.append(_xform(Vector3(sx*47,0.13,sz*13.5),Vector3(66,0.26,0.45)))
+			distant_curb_transforms.append(_xform(Vector3(sx*13.5,0.13,sz*47),Vector3(0.45,0.26,66)))
+			distant_curb_transforms.append(_xform(Vector3(sx*47,0.13,sz*13.5),Vector3(66,0.26,0.45)))
+			for segment in range(26):
+				var along := 15.25+float(segment)*2.5
+				curb_transforms.append(Transform3D(Basis.IDENTITY,Vector3(sx*13.5,0,sz*along)))
+				curb_transforms.append(Transform3D(Basis(Vector3.UP,PI*0.5),Vector3(sx*along,0,sz*13.5)))
 			# Drainage grates sit in the gutter, aligned with the real curb.
 			for d in [25,70]:
 				for grate in range(6):
@@ -389,6 +473,15 @@ func _make_chunk(key: Vector2i) -> Node3D:
 					if absf(p.x-lot.x)<3: p.x += 5
 					if absf(p.z-lot.z)<3: p.z += 5
 					_add_authored_tree(p,rng,trees)
+				# Planting follows the park edge; paths and junction sightlines remain clear.
+				for detail in range([14,24,36][quality]):
+					var edge := rng.randf_range(21,75)
+					var p := Vector3(sx*(19+rng.randf_range(0,3)),0.2,sz*edge)
+					if detail%2==0: p = Vector3(sx*edge,0.2,sz*(19+rng.randf_range(0,3)))
+					shrubs.append(_scatter_transform(p,rng,0.65,1.2))
+				for detail in range([2,4,6][quality]):
+					var p := lot+Vector3(rng.randf_range(-24,24),0.18,rng.randf_range(-24,24))
+					if absf(p.x-lot.x)>4 and absf(p.z-lot.z)>4: rocks.append(_scatter_transform(p,rng,0.45,0.95))
 				continue
 			var low_district := district.contains("VILLAGE") or district.contains("HEIGHTS")
 			# Buildings line the street, rather than floating alone in large empty lots.
@@ -412,17 +505,33 @@ func _make_chunk(key: Vector2i) -> Node3D:
 			for t in [29,58]:
 				_add_authored_tree(Vector3(sx*16.1,0,sz*t),rng,trees)
 				_add_authored_tree(Vector3(sx*t,0,sz*16.1),rng,trees)
+				for offset in [-0.7,0.7]:
+					shrubs.append(_scatter_transform(Vector3(sx*16.1,0.17,sz*t+offset),rng,0.42,0.65))
+					shrubs.append(_scatter_transform(Vector3(sx*t+offset,0.17,sz*16.1),rng,0.42,0.65))
 	_multimesh(root,_box,_materials.sidewalk,sidewalk_transforms,[])
-	_multimesh(root,_box,_materials.curb,curb_transforms,[])
+	var close_curbs := _multimesh(root,_asset_parts.kerbstone[0].mesh,_materials.pbr_stone,curb_transforms,[])
+	close_curbs.name = "BevelledKerbstones"
+	close_curbs.set_meta("groundcover",true)
+	close_curbs.visibility_range_end = [85.0,125.0,175.0][quality]
+	var far_curbs := _multimesh(root,_box,_materials.curb,distant_curb_transforms,[])
+	far_curbs.name = "DistantKerbSilhouette"
+	far_curbs.set_meta("distant_grounddetail",true)
+	far_curbs.visibility_range_begin = [85.0,125.0,175.0][quality]
 	_multimesh(root,_box,_materials.trim,street_details,[])
 	_batch_asset(root,"brick_corner",brick_blocks)
 	_batch_asset(root,"limestone_midrise",stone_blocks)
 	_batch_asset(root,"brick_lowrise",low_blocks)
 	_batch_asset(root,"street_plane_tree",trees)
+	_batch_asset(root,"roadside_shrub",shrubs)
+	_batch_asset(root,"roadside_rock",rocks)
 	_street_furniture(root)
 	if absf(root.position.x)>LIMIT-TILE or absf(root.position.z)>LIMIT-TILE:
 		_build_boundary(root,ground)
 	return root
+
+func _scatter_transform(p: Vector3,rng: RandomNumberGenerator,min_scale: float,max_scale: float) -> Transform3D:
+	var scale_prop := rng.randf_range(min_scale,max_scale)
+	return Transform3D(Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3.ONE*scale_prop),p)
 
 func _add_authored_tree(p: Vector3,rng: RandomNumberGenerator,trees: Array[Transform3D]) -> void:
 	var scale_tree := rng.randf_range(0.78,1.14)

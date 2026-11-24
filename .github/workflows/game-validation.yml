@@ -2,7 +2,6 @@ name: Game validation
 on:
   pull_request:
   push:
-    branches-ignore: [main]
 permissions:
   contents: read
 defaults:
@@ -36,8 +35,33 @@ jobs:
           if grep -Eq 'SCRIPT ERROR:|Parse Error:|Failed to load script|ERROR:' import.log; then exit 1; fi
       - name: Validate gameplay and input flows
         run: |
-          for test in ../tests/session_test.gd ../tests/world_test.gd res://tests/vehicle_test.gd res://tests/drive_controls_test.gd res://tests/handling_test.gd res://tests/ui_flow_test.gd ../tests/smoke_test.gd; do
+          python3 tools/configure_texture_imports.py --check
+          python3 tools/validate_art_assets.py
+          for test in ../tests/session_test.gd ../tests/world_test.gd res://tests/vehicle_test.gd res://tests/drive_controls_test.gd res://tests/handling_test.gd res://tests/vehicle_presentation_test.gd res://tests/mobile_render_profile_test.gd res://tests/ui_flow_test.gd ../tests/smoke_test.gd; do
             godot --headless --path game --script "$test" --fixed-fps 60 2>&1 | tee test.log
             if grep -Eq 'SCRIPT ERROR:|ERROR:' test.log; then exit 1; fi
           done
           node --test tools/release.test.mjs
+      - name: Install software Vulkan test driver
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers xvfb xauth
+      - name: Validate actual Mobile rendering and capture screens
+        run: |
+          mkdir -p build
+          timeout 180s xvfb-run -a godot --path game --audio-driver Dummy --rendering-method mobile --rendering-driver vulkan --script res://tests/mobile_render_profile_test.gd -- --require-mobile 2>&1 | tee build/mobile-profile.log
+          if grep -Eq 'SCRIPT ERROR:|ERROR:' build/mobile-profile.log; then exit 1; fi
+          timeout 180s xvfb-run -a -s '-screen 0 1600x1000x24' godot --path game --audio-driver Dummy --rendering-method mobile --rendering-driver vulkan --script ../tests/capture_preview.gd 2>&1 | tee build/mobile-render.log
+          if grep -Eq 'SCRIPT ERROR:|ERROR:' build/mobile-render.log; then exit 1; fi
+          grep -q 'RENDER_PROFILE method=mobile' build/mobile-render.log
+          grep -q 'RENDER_CAPTURE_PASS' build/mobile-render.log
+      - name: Save rendering evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-render-review
+          path: |
+            build/previews/*.png
+            build/mobile-profile.log
+            build/mobile-render.log
+          if-no-files-found: ignore

@@ -101,7 +101,7 @@ func run() -> void:
 	var focus_style: StyleBoxFlat = game.ui_theme.get_stylebox("focus", "Button")
 	check(focus_style.border_width_left >= 2 and focus_style.border_color.a >= 0.8, "Focused menu actions need a visible outline")
 	var event_counts: Dictionary = {}
-	for action in ["accelerate", "brake", "left", "right", "handbrake", "interact", "horn", "pause_drive", "reverse"]:
+	for action in ["accelerate", "brake", "left", "right", "handbrake", "interact", "horn", "pause_drive", "reverse", "camera_view"]:
 		event_counts[action] = InputMap.action_get_events(action).size()
 	game._setup_input()
 	for action in event_counts:
@@ -116,6 +116,8 @@ func run() -> void:
 	reverse.button_index = JOY_BUTTON_Y
 	reverse.pressed = true
 	check(InputMap.event_is_action(reverse, "reverse"), "Gamepad Y must map to the direction selector")
+	reverse.button_index = JOY_BUTTON_RIGHT_SHOULDER
+	check(InputMap.event_is_action(reverse, "camera_view"), "Gamepad right shoulder must change the camera")
 	var key := InputEventKey.new()
 	key.physical_keycode = KEY_W
 	key.pressed = true
@@ -135,11 +137,19 @@ func run() -> void:
 	await frames()
 	check(game.vehicle.enabled and not game.vehicle.freeze, "Starting must enable the vehicle")
 	check(is_instance_valid(game.drive_controls), "Explicit touch mode must install the input helper")
+	check(game.camera_mode == 1 and viewport.get_camera_3d() == game.vehicle.chase_camera, "New careers must start with the chase view")
+	game._toggle_camera()
+	check(game.camera_mode == 0 and viewport.get_camera_3d() == game.vehicle.cockpit_camera, "View control must switch to the cockpit immediately")
+	var camera_config := ConfigFile.new()
+	check(camera_config.load(test_settings) == OK and int(camera_config.get_value("video", "camera", -1)) == 0, "Selected camera must persist in settings")
+	game._toggle_camera()
+	check(viewport.get_camera_3d() == game.vehicle.chase_camera, "Second view change must restore the chase view")
 	game._settings()
 	await frames()
 	game._close_page()
 	await frames()
 	check(game.mode == "drive" and not game.vehicle.freeze, "Back from driving settings must resume driving")
+	check(viewport.get_camera_3d() == game.vehicle.chase_camera, "Back from settings must restore the chosen camera")
 
 	touch(0, Vector2(120, 575), true)
 	drag(0, Vector2(165, 575))

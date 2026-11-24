@@ -1,0 +1,127 @@
+{
+  "generator": "tools/build_vehicle_art.py",
+  "blender_version": "4.3.2",
+  "bake_engine": "CYCLES",
+  "bake_samples": 16,
+  "atlas_resolution": [
+    1024,
+    1024
+  ],
+  "normal_convention": "tangent +X +Y +Z",
+  "tangents_exported": true,
+  "maps": [
+    {
+      "channel": "albedo",
+      "blender_bake_type": "EMIT",
+      "size": [
+        1024,
+        1024
+      ],
+      "seconds": 1.648,
+      "path": "game/assets/vehicles/aster_albedo.png"
+    },
+    {
+      "channel": "normal",
+      "blender_bake_type": "NORMAL",
+      "size": [
+        1024,
+        1024
+      ],
+      "seconds": 1.993,
+      "path": "game/assets/vehicles/aster_normal.png"
+    },
+    {
+      "channel": "roughness",
+      "blender_bake_type": "ROUGHNESS",
+      "size": [
+        1024,
+        1024
+      ],
+      "seconds": 2.165,
+      "path": "game/assets/vehicles/aster_roughness.png"
+    },
+    {
+      "channel": "ao",
+      "blender_bake_type": "AO",
+      "size": [
+        1024,
+        1024
+      ],
+      "seconds": 2.407,
+      "path": "game/assets/vehicles/aster_ao.png"
+    }
+  ],
+  "modifiers_applied": {
+    "bevel_two_segments": 96,
+    "weighted_normal": 117
+  },
+  "triangles_source_total": 24850,
+  "wheels": {
+    "FL": {
+      "source_axle_center_godot": [
+        -0.82,
+        -0.2,
+        -1.28
+      ],
+      "glb_root_translation": [
+        0,
+        0,
+        0
+      ],
+      "local_axle_axis": "X",
+      "spin_axis": "X",
+      "steer_axis": "Y",
+      "glb": "game/assets/vehicles/aster_wheel_fl.glb"
+    },
+    "FR": {
+      "source_axle_center_godot": [
+        0.82,
+        -0.2,
+        -1.28
+      ],
+      "glb_root_translation": [
+        0,
+        0,
+        0
+      ],
+      "local_axle_axis": "X",
+      "spin_axis": "X",
+      "steer_axis": "Y",
+      "glb": "game/assets/vehicles/aster_wheel_fr.glb"
+    },
+    "RL": {
+      "source_axle_center_godot": [
+        -0.82,
+        -0.2,
+        1.28
+      ],
+      "glb_root_translation": [
+        0,
+        0,
+        0
+      ],
+      "local_axle_axis": "X",
+      "spin_axis": "X",
+      "steer_axis": "Y",
+      "glb": "game/assets/vehicles/aster_wheel_rl.glb"
+    },
+    "RR": {
+      "source_axle_center_godot": [
+        0.82,
+        -0.2,
+        1.28
+      ],
+      "glb_root_translation": [
+        0,
+        0,
+        0
+      ],
+      "local_axle_axis": "X",
+      "spin_axis": "X",
+      "steer_axis": "Y",
+      "glb": "game/assets/vehicles/aster_wheel_rr.glb"
+    }
+  },
+  "body_glb": "game/assets/vehicles/aster_cabin.glb",
+  "textures_embedded_in_glb": false
+}

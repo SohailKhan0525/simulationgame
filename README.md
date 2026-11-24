@@ -8,7 +8,7 @@ An offline-first Android driving game built with **Godot 4.5.1**. Stay behind th
 
 ## Play
 
-Install the signed `Qofeno-Drive.apk` from a published release on an Android 8+ device with ARM64 or x86_64 support. Android may ask you to allow installation from the app you use to open the APK. Desktop development builds can be run from the Godot editor.
+Install the signed `Qofeno-Drive.apk` from a published release on an Android 8+ device with ARM64 or x86_64 support and Vulkan-capable graphics. Android may ask you to allow installation from the app you use to open the APK. Desktop development builds can be run from the Godot editor.
 
 Choose **Continue your drive**, open **Jobs**, accept a dispatch and follow the destination marker. Stop below 3 km/h at a pickup or destination and use **Interact**. At a petrol station, stop beside the attendant and interact to buy fuel without leaving the car. Cash and XP unlock cars, upgrades and later dispatches. Earlier jobs remain replayable.
 
@@ -21,14 +21,17 @@ Choose **Continue your drive**, open **Jobs**, accept a dispatch and follow the 
 | Handbrake | Hold H/B | Space / controller A |
 | Pickup, drop-off, refuel | Contextual Interact / Refuel | E / controller X |
 | Horn | Horn | H / controller LB |
+| Chase / cockpit view | View button | C / controller RB |
 | Pause/menu | Pause button | Escape / controller Start |
 | Dispatch/map/recovery | Jobs / Map; recovery in Settings | Keyboard/controller focus in pause menu |
 
-Progress is saved automatically and when pausing. **Settings** provides steering sensitivity, touch display, cockpit field of view, graphics quality, audio, time/weather and update actions. Android update downloads run in the background with progress; installation still requires your approval in Android. Touch controls track independent fingers and reset on interruption; menus support visible keyboard/controller focus.
+Progress is saved automatically and when pausing. **Settings** provides steering sensitivity, touch display, chase/cockpit selection, base field of view, graphics quality, live frame-time metrics, audio, time/weather and update actions. Android update downloads run in the background with progress; installation still requires your approval in Android. Touch controls track independent fingers and reset on interruption; menus support visible keyboard/controller focus.
 
 ## Included in the prototype
 
-- A fixed in-car driving view with a Blender-authored body and cabin, a modeled dashboard, animated speed/RPM needles, steering wheel, trim, seats and a visible passenger. There is no exit-car control.
+- A smooth chase camera with drift swing and obstacle avoidance, plus an optional cockpit view with animated speed/RPM needles, steering wheel, trim, seats and a visible passenger. The default FOV widens from 65° to 82° with speed. There is no exit-car control.
+- Blender-baked 1024² albedo, tangent normal, roughness and AO maps; two-segment bevels and weighted normals; independent axle-centered wheel exports; metallic clearcoat paint and working emissive lamps.
+- Golden-hour lighting, depth fog, subtle glow, one live car reflection probe, rear-tire smoke and speed-dependent downforce. Roadside plants and rocks use shared MultiMesh geometry.
 - Four contact rays with spring/damper suspension, tire-force limits, braking, reverse, handbrake, wet grip, fuel consumption and impact damage. Engine, road, wind, horn and impact sounds are synthesized.
 - Three fictional cars: Aster S, Meridian GT and Veloce R, each with five performance upgrade stages and different engine tuning.
 - Twenty progression levels and twenty level-gated, repeatable dispatches, including passenger trips, deliveries and timed checkpoint challenges. Passenger dialogue includes commuters, a tipsy rider, an off-duty officer, a reformed thief and a shady fare.
@@ -53,7 +56,7 @@ godot --path game --editor
 godot --path game
 ```
 
-The runtime uses the Compatibility renderer for broad hardware support. No paid engine subscription, cloud login or gameplay server is required. See [RELEASING.md](docs/RELEASING.md) for Android SDK, Gradle, signing and release setup.
+The runtime uses Godot's **Mobile renderer / Vulkan**, 2× MSAA, mipmapped VRAM-compressed 3D textures, and a 60 FPS cap. Graphics presets render 3D at 70%, 85%, or 100% resolution while keeping the UI at native resolution. A cap is not a measured performance guarantee: sustained 60 FPS and thermals still require physical-device testing. No paid engine subscription, cloud login or gameplay server is required. See [RELEASING.md](docs/RELEASING.md) for Android SDK, Gradle, signing and release setup, and [MOBILE_GRAPHICS.md](docs/MOBILE_GRAPHICS.md) for renderer constraints and profiling.
 
 Useful checks:
 
@@ -62,7 +65,11 @@ godot --headless --path game --editor --import --quit
 godot --headless --path game --script ../tests/session_test.gd
 godot --headless --path game --script res://tests/drive_controls_test.gd
 godot --headless --path game --script res://tests/handling_test.gd --fixed-fps 60
+godot --headless --path game --script res://tests/vehicle_presentation_test.gd --fixed-fps 60
+godot --headless --path game --script res://tests/mobile_render_profile_test.gd --fixed-fps 60
 godot --headless --path game --script res://tests/ui_flow_test.gd --fixed-fps 60
+python3 tools/configure_texture_imports.py --check
+python3 tools/validate_art_assets.py
 npm ci --ignore-scripts
 npm run test:release
 python3 tests/test_reset_history.py

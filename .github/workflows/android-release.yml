@@ -12,6 +12,10 @@ concurrency:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   release:
     if: github.ref == 'refs/heads/main'
@@ -64,9 +68,16 @@ jobs:
         run: |
           godot --headless --path game --editor --import --quit 2>&1 | tee /tmp/qofeno-import.log
           if grep -Eq 'SCRIPT ERROR:|Parse Error:|Failed to load script' /tmp/qofeno-import.log; then exit 1; fi
+          python3 tools/configure_texture_imports.py --check
+          python3 tools/validate_art_assets.py
           godot --headless --path game --script ../tests/session_test.gd
           godot --headless --path game --script ../tests/world_test.gd
           godot --headless --path game --script res://tests/vehicle_test.gd --fixed-fps 60
+          godot --headless --path game --script res://tests/drive_controls_test.gd --fixed-fps 60
+          godot --headless --path game --script res://tests/handling_test.gd --fixed-fps 60
+          godot --headless --path game --script res://tests/vehicle_presentation_test.gd --fixed-fps 60
+          godot --headless --path game --script res://tests/mobile_render_profile_test.gd --fixed-fps 60
+          godot --headless --path game --script res://tests/ui_flow_test.gd --fixed-fps 60
           godot --headless --path game --script ../tests/smoke_test.gd --fixed-fps 60
 
       - name: Build, verify, and publish semantic release

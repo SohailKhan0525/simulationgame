@@ -7,6 +7,8 @@ Exports runtime GLBs and an editable, organized Blender source scene.
 from pathlib import Path
 import math
 import random
+import json
+import sys
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -19,19 +21,45 @@ SOURCE.mkdir(parents=True, exist_ok=True)
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.object.delete(use_global=False)
 random.seed(2605)
+REPORT={"bake_resolution":1024,"bake_samples":16,"bake_engine":"Cycles CPU","bake_channels":["albedo","normal","roughness","ao"],"bevel_segments":2,"bevel_applied":0,"weighted_normals_applied":0,"assets":{}}
+bpy.context.scene.render.engine = "CYCLES"
+bpy.context.scene.cycles.samples = 16
+bpy.context.scene.cycles.use_denoising = False
+bpy.context.scene.render.bake.margin = 4
+bpy.context.scene.render.bake.use_pass_direct = False
+bpy.context.scene.render.bake.use_pass_indirect = False
+bpy.context.scene.render.bake.use_pass_color = True
+bpy.context.scene.render.bake.use_selected_to_active = True
+bpy.context.scene.render.bake.cage_extrusion = .045
+bpy.context.scene.render.bake.max_ray_distance = .09
 
 
 def texture(name, base, masonry=False):
-    """Tileable 2.8 m surface, mortar with restrained grain and brick variation."""
-    n = 512
+    """Cycles bake of a real relief mesh: color, tangent normal, roughness and AO.
+
+    Two shared 1024-square surface sets serve all architecture and road surfaces.
+    AO is ray traced from physical relief, not a constant placeholder image.
+    """
+    n = 1024
+    if "--reuse-bakes" in sys.argv:
+        result={}
+        for channel in REPORT["bake_channels"]:
+            path=OUT/(name+"_"+channel+".png")
+            if not path.exists(): raise RuntimeError("Missing cached bake: "+str(path))
+            img=bpy.data.images.load(str(path),check_existing=True)
+            if channel!="albedo": img.colorspace_settings.name="Non-Color"
+            result[channel]=img
+        return result
     y, x = np.mgrid[0:n, 0:n].astype(np.float32)
-    noise = np.random.default_rng(45).random((n, n)).astype(np.float32)
+    rng = np.random.default_rng(45 if masonry else 64)
+    noise = np.repeat(np.repeat(rng.random((128,128)).astype(np.float32),8,0),8,1)
+    noise = (noise + np.roll(noise, 3, 0) + np.roll(noise, 3, 1)) / 3
     if masonry:
         row = np.floor(y / (n / 28))
         u = (x + (row % 2) * (n / 14)) % (n / 7)
         v = y % (n / 28)
         edge = np.minimum(np.minimum(u, n / 7 - u), np.minimum(v, n / 28 - v))
-        mortar = np.clip((1.6 - edge) / 1.5, 0, 1)
+        mortar = np.clip((3.2 - edge) / 2.8, 0, 1)
         seed = np.mod(np.sin(row * 72.73 + np.floor((x + (row % 2) * n / 14) / (n / 7)) * 9.31) * 421.7, 1)
         shade = 0.88 + seed * 0.24 + (noise - 0.5) * 0.13
     else:
@@ -39,13 +67,75 @@ def texture(name, base, masonry=False):
         shade = 0.95 + noise * 0.10
     rgba = np.ones((n, n, 4), dtype=np.float32)
     for i, col in enumerate(base):
-        rgba[:, :, i] = np.clip(col * shade * (1 - mortar) + 0.40 * mortar, 0, 1)
-    image = bpy.data.images.new(name, width=n, height=n)
-    image.pixels.foreach_set(rgba.ravel())
-    image.filepath_raw = str(OUT / (name + ".png"))
-    image.file_format = "PNG"
-    image.save()
-    return image
+        rgba[:, :, i] = np.clip(col * shade * (1 - mortar) + 0.23 * mortar, 0, 1)
+    height = (1-mortar)*.010 + noise*.003 if masonry else noise*.006
+    roughness = np.clip(.72 + noise*.19 + mortar*.07,0,1)
+    source_mat = bpy.data.materials.new(name+" relief source")
+    source_mat.use_nodes = True
+    bsdf = source_mat.node_tree.nodes.get("Principled BSDF")
+    temp_images=[]
+    for channel, pixels, target in [("color",rgba,"Base Color"),("roughness",roughness,"Roughness")]:
+        img=bpy.data.images.new(name+" source "+channel,width=n,height=n)
+        if channel!="color": img.colorspace_settings.name="Non-Color"
+        if pixels.ndim==2:
+            pixels=np.stack([pixels,pixels,pixels,np.ones_like(pixels)],axis=-1)
+        img.pixels.foreach_set(pixels.ravel())
+        node=source_mat.node_tree.nodes.new("ShaderNodeTexImage")
+        node.image=img
+        source_mat.node_tree.links.new(node.outputs["Color"],bsdf.inputs[target])
+        temp_images.append(img)
+    # 256x256 relief cells, with UVs matching the flat receiver's physical 2.8m tile.
+    grid=256
+    verts=[]
+    faces=[]
+    for row in range(grid+1):
+        for col in range(grid+1):
+            verts.append((col/grid*2.8-1.4,row/grid*2.8-1.4,float(height[min(n-1,row*4),min(n-1,col*4)])))
+    for row in range(grid):
+        for col in range(grid):
+            a=row*(grid+1)+col
+            faces.append((a,a+1,a+grid+2,a+grid+1))
+    mesh=bpy.data.meshes.new(name+" sculpted relief")
+    mesh.from_pydata(verts,[],faces)
+    mesh.update()
+    uv=mesh.uv_layers.new(name="UVMap")
+    for polygon in mesh.polygons:
+        polygon.use_smooth=True
+        for li in polygon.loop_indices:
+            co=mesh.vertices[mesh.loops[li].vertex_index].co
+            uv.data[li].uv=((co.x+1.4)/2.8,(co.y+1.4)/2.8)
+    high=bpy.data.objects.new(name+" high relief",mesh)
+    bpy.context.scene.collection.objects.link(high)
+    high.data.materials.append(source_mat)
+    bpy.ops.mesh.primitive_plane_add(size=2.8)
+    low=bpy.context.object
+    low.name=name+" bake receiver"
+    receiver=bpy.data.materials.new(name+" receiver")
+    receiver.use_nodes=True
+    low.data.materials.append(receiver)
+    target=receiver.node_tree.nodes.new("ShaderNodeTexImage")
+    baked={}
+    for channel, bake_type in [("albedo","DIFFUSE"),("normal","NORMAL"),("roughness","ROUGHNESS"),("ao","AO")]:
+        image=bpy.data.images.new(name+"_"+channel,width=n,height=n,alpha=False)
+        if channel!="albedo": image.colorspace_settings.name="Non-Color"
+        target.image=image
+        receiver.node_tree.nodes.active=target
+        bpy.ops.object.select_all(action="DESELECT")
+        high.select_set(True)
+        low.select_set(True)
+        bpy.context.view_layer.objects.active=low
+        print("Baking",name,channel,"1024px / 16 samples",flush=True)
+        bpy.ops.object.bake(type=bake_type,normal_space="TANGENT")
+        image.filepath_raw=str(OUT/(name+"_"+channel+".png"))
+        image.file_format="PNG"
+        image.save()
+        baked[channel]=image
+    bpy.data.objects.remove(high,do_unlink=True)
+    bpy.data.objects.remove(low,do_unlink=True)
+    bpy.data.materials.remove(source_mat)
+    bpy.data.materials.remove(receiver)
+    for img in temp_images: bpy.data.images.remove(img)
+    return baked
 
 
 def material(name, color, rough=0.8, metal=0.0, image=None):
@@ -58,14 +148,33 @@ def material(name, color, rough=0.8, metal=0.0, image=None):
     bsdf.inputs["Metallic"].default_value = metal
     if image:
         tex = mat.node_tree.nodes.new("ShaderNodeTexImage")
-        tex.image = image
+        tex.image = image["albedo"]
         mat.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+        rough_tex=mat.node_tree.nodes.new("ShaderNodeTexImage")
+        rough_tex.image=image["roughness"]
+        mat.node_tree.links.new(rough_tex.outputs["Color"],bsdf.inputs["Roughness"])
+        normal_tex=mat.node_tree.nodes.new("ShaderNodeTexImage")
+        normal_tex.image=image["normal"]
+        normal=mat.node_tree.nodes.new("ShaderNodeNormalMap")
+        mat.node_tree.links.new(normal_tex.outputs["Color"],normal.inputs["Color"])
+        mat.node_tree.links.new(normal.outputs["Normal"],bsdf.inputs["Normal"])
+        ao_tex=mat.node_tree.nodes.new("ShaderNodeTexImage")
+        ao_tex.image=image["ao"]
+        group=bpy.data.node_groups.get("glTF Material Output")
+        if not group:
+            group=bpy.data.node_groups.new("glTF Material Output","ShaderNodeTree")
+            group.interface.new_socket(name="Occlusion",in_out="INPUT",socket_type="NodeSocketFloat")
+        ao=mat.node_tree.nodes.new("ShaderNodeGroup")
+        ao.node_tree=group
+        mat.node_tree.links.new(ao_tex.outputs["Color"],ao.inputs["Occlusion"])
     return mat
 
 
-brick = material("Fired umber brick", (.24, .12, .075), image=texture("brick_umber", (.24, .12, .075), True))
-sandstone = material("Buff limestone", (.37, .34, .28), image=texture("limestone", (.37, .34, .28)))
-stone = material("Weathered pale concrete", (.28, .29, .26), image=texture("concrete", (.28, .29, .26)))
+brick_maps=texture("masonry",(.24,.12,.075),True)
+mineral_maps=texture("mineral",(.29,.28,.25))
+brick = material("Fired umber brick", (.24, .12, .075), image=brick_maps)
+sandstone = material("Buff limestone", (.37, .34, .28), image=mineral_maps)
+stone = material("Weathered pale concrete", (.28, .29, .26), image=mineral_maps)
 glass = material("Smoked blue glazing", (.075, .12, .15), .27, .32)
 metal = material("Painted charcoal steel", (.07, .085, .083), .54, .3)
 roof = material("Slate roofing", (.19, .20, .18), .95)
@@ -91,7 +200,9 @@ def cube(name, loc, size, mat, bevel=0):
     points = [(a*size[0]/2, b*size[1]/2, c*size[2]/2)
               for a,b,c in [(-1,-1,-1),(-1,-1,1),(-1,1,-1),(-1,1,1),
                             (1,-1,-1),(1,-1,1),(1,1,-1),(1,1,1)]]
-    faces = [(0,4,6,2),(1,3,7,5),(0,1,5,4),(2,6,7,3),(0,2,3,1),(4,5,7,6)]
+    # Counter-clockwise when viewed from outside: bevels, tangent frames and
+    # backface-culled road shaders all rely on outward geometric normals.
+    faces = [(2,6,4,0),(5,7,3,1),(4,5,1,0),(3,7,6,2),(1,3,2,0),(6,7,5,4)]
     mesh = bpy.data.meshes.new(name)
     mesh.from_pydata(points, [], faces)
     mesh.update()
@@ -107,13 +218,19 @@ def cube(name, loc, size, mat, bevel=0):
             co = obj.data.vertices[obj.data.loops[li].vertex_index].co + Vector(loc)
             uv.data[li].uv = ((co.y if axis == 0 else co.x) / 2.8,
                               (co.y if axis == 2 else co.z) / 2.8)
-    if bevel and min(size[:2]) > 10:
+    if bevel and (min(size[:2]) > 10 or name in {"Kerbstone","Parking bollard"}):
         mod = obj.modifiers.new("Edge highlights", "BEVEL")
         mod.width = bevel
-        mod.segments = 1
+        mod.segments = 2
+        mod.harden_normals = True
         bpy.context.view_layer.objects.active = obj
         bpy.ops.object.modifier_apply(modifier=mod.name)
-        obj.modifiers.new("Weighted normals", "WEIGHTED_NORMAL")
+        for polygon in obj.data.polygons: polygon.use_smooth=True
+        normals=obj.modifiers.new("Weighted normals", "WEIGHTED_NORMAL")
+        normals.keep_sharp=True
+        bpy.ops.object.modifier_apply(modifier=normals.name)
+        REPORT["bevel_applied"]+=1
+        REPORT["weighted_normals_applied"]+=1
     return obj
 
 
@@ -133,8 +250,18 @@ def cylinder(name, a, b, r1, r2, mat, vertices=8):
     obj=bpy.data.objects.new(name,mesh)
     active.objects.link(obj)
     mesh.materials.append(mat)
+    uv=mesh.uv_layers.new(name="Surface UV")
     for poly in obj.data.polygons:
         poly.use_smooth = len(poly.vertices) == 4
+        for li in poly.loop_indices:
+            vi=mesh.loops[li].vertex_index
+            if len(poly.vertices)==4:
+                turn=(vi%vertices)/vertices
+                if (vertices-1) in [int(v)%vertices for v in poly.vertices] and vi%vertices==0: turn=1.0
+                uv.data[li].uv=(turn*math.tau*(r1+r2)*.5/2.8,(1.0 if vi>=vertices else 0.0)*direction.length/2.8)
+            else:
+                local=rotation.inverted()@(mesh.vertices[vi].co-Vector(a))
+                uv.data[li].uv=(local.x/2.8,local.y/2.8)
     return obj
 
 
@@ -241,8 +368,9 @@ def tree():
     active = bpy.data.collections.new("street_plane_tree")
     bpy.context.scene.collection.children.link(active)
     cylinder("Trunk", (0, 0, 0), (.13, 0, 3.9), .22, .13, wood, 10)
-    mesh_parts = [[] for _ in leaves]
-    faces = [[] for _ in leaves]
+    points=[]
+    faces=[]
+    leaf_uv=[]
     for branch in range(10):
         angle = branch * 2.39996
         radial = 1.8 + (branch % 3) * .38
@@ -252,32 +380,114 @@ def tree():
         for twig in range(3):
             tip = end + Vector((random.uniform(-.8, .8), random.uniform(-.8, .8), random.uniform(-.3, .7)))
             cylinder("Twig", start.lerp(end, .7), tip, .025, .007, wood, 5)
-        for leaf in range(38):
-            # Leaves occupy branch-end clusters with irregular gaps, not solid spheres.
-            p = end + Vector((random.uniform(-1.5, 1.5), random.uniform(-1.5, 1.5), random.uniform(-1.0, 1.25)))
+        for leaf in range(9):
+            # Small branch cards: cutout foliage, with gaps and bounded overdraw.
+            p = end + Vector((random.uniform(-1.4, 1.4), random.uniform(-1.4, 1.4), random.uniform(-.9, 1.1)))
             a = random.uniform(0, math.tau)
-            length = random.uniform(.28, .48)
-            width = length * random.uniform(.55, .8)
-            along = Vector((math.cos(a), math.sin(a), random.uniform(-.7, .7))).normalized() * length
-            across = Vector((-math.sin(a), math.cos(a), random.uniform(-.3, .3))) * width
-            mi = random.randrange(3)
-            index = len(mesh_parts[mi])
-            mesh_parts[mi].extend([p, p + along, p + across, p - along, p - across])
-            faces[mi].extend([(index, index + 1, index + 2), (index, index + 2, index + 3),
-                             (index, index + 3, index + 4), (index, index + 4, index + 1)])
-    for i, mat in enumerate(leaves):
-        mesh = bpy.data.meshes.new("Folded leaf geometry")
-        mesh.from_pydata(mesh_parts[i], [], faces[i])
-        mesh.update()
-        obj = bpy.data.objects.new("Leaf canopy", mesh)
-        active.objects.link(obj)
-        obj.data.materials.append(mat)
-        mat.use_backface_culling = False
+            across=Vector((math.cos(a),math.sin(a),0))*.75
+            along=Vector((random.uniform(-.35,.35),random.uniform(-.35,.35),.85))
+            index=len(points)
+            points.extend([p-across-along,p+across-along,p+across+along,p-across+along])
+            faces.append((index,index+1,index+2,index+3))
+    leaf_mesh("Leaf canopy",points,faces)
     return active
 
 
+def foliage_atlas():
+    n=1024
+    y,x=np.mgrid[0:n,0:n].astype(np.float32)/n
+    alpha=np.zeros((n,n),dtype=np.float32)
+    shade=np.zeros((n,n),dtype=np.float32)
+    for cy,cx,angle,length,width in [(.86,.5,0,.12,.065)]+[(h,.5+s*.14,s*.8,.17,.075) for h in (.25,.43,.61,.76) for s in (-1,1)]:
+        dx=x-cx; dy=y-cy
+        along=dx*math.sin(angle)+dy*math.cos(angle)
+        across=dx*math.cos(angle)-dy*math.sin(angle)
+        silhouette=1-(along/length)**2-(across/width)**2
+        mask=np.clip(silhouette*70,0,1)
+        alpha=np.maximum(alpha,mask)
+        veins=(np.cos(along*180+np.abs(across)*100)>.9).astype(np.float32)*.07
+        shade=np.maximum(shade,mask*(.65+silhouette*.2-np.abs(across)/width*.10-veins))
+    stem=((np.abs(x-.5)<.006)&(y>.08)&(y<.91)).astype(np.float32)
+    alpha=np.maximum(alpha,stem)
+    rgba=np.zeros((n,n,4),dtype=np.float32)
+    for i,c in enumerate((.13,.22,.045)): rgba[:,:,i]=c*(shade+.25)
+    rgba[:,:,3]=alpha
+    img=bpy.data.images.new("foliage_atlas",width=n,height=n,alpha=True)
+    img.pixels.foreach_set(rgba.ravel())
+    img.filepath_raw=str(OUT/"foliage_atlas.png")
+    img.file_format="PNG"
+    img.save()
+    mat=material("Cutout foliage",(.13,.22,.045),.94)
+    mat.use_backface_culling=False
+    mat.surface_render_method="DITHERED"
+    tex=mat.node_tree.nodes.new("ShaderNodeTexImage")
+    tex.image=img
+    bsdf=mat.node_tree.nodes.get("Principled BSDF")
+    mat.node_tree.links.new(tex.outputs["Color"],bsdf.inputs["Base Color"])
+    mat.node_tree.links.new(tex.outputs["Alpha"],bsdf.inputs["Alpha"])
+    return mat
+
+
+def leaf_mesh(name,points,faces):
+    mesh=bpy.data.meshes.new(name)
+    mesh.from_pydata(points,[],faces)
+    mesh.update()
+    uv=mesh.uv_layers.new(name="UVMap")
+    for poly in mesh.polygons:
+        for i,li in enumerate(poly.loop_indices): uv.data[li].uv=[(0,0),(1,0),(1,1),(0,1)][i]
+    obj=bpy.data.objects.new(name,mesh)
+    active.objects.link(obj)
+    mesh.materials.append(leaf_card_material)
+    return obj
+
+
+def roadside_kit():
+    global active
+    output=[]
+    active=bpy.data.collections.new("roadside_shrub")
+    bpy.context.scene.collection.children.link(active)
+    points=[]; faces=[]
+    for i in range(5):
+        a=i*math.pi/5
+        u=Vector((math.cos(a),math.sin(a),0))*.55
+        p=Vector((0,0,.45))
+        v=Vector((0,0,.45))
+        start=len(points)
+        points.extend([p-u-v,p+u-v,p+u+v,p-u+v])
+        faces.append((start,start+1,start+2,start+3))
+    leaf_mesh("Roadside planting",points,faces)
+    output.append(active)
+    active=bpy.data.collections.new("roadside_rock")
+    bpy.context.scene.collection.children.link(active)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2,radius=1)
+    obj=bpy.context.object
+    put(obj,"Weathered granite",stone)
+    for v in obj.data.vertices:
+        v.co*=random.uniform(.84,1.14)
+        v.co.x*=1.1
+        v.co.y*=.75
+        v.co.z=max(0,v.co.z*.55+.34)
+    uv=obj.data.uv_layers.new(name="UVMap")
+    for poly in obj.data.polygons:
+        poly.use_smooth=True
+        for li in poly.loop_indices:
+            co=obj.data.vertices[obj.data.loops[li].vertex_index].co
+            uv.data[li].uv=(co.x/2.8,co.y/2.8)
+    output.append(active)
+    active=bpy.data.collections.new("road_slab")
+    bpy.context.scene.collection.children.link(active)
+    cube("Road slab",(0,0,0),(22,160,.08),stone,.025)
+    output.append(active)
+    active=bpy.data.collections.new("kerbstone")
+    bpy.context.scene.collection.children.link(active)
+    cube("Kerbstone",(0,0,.13),(.45,2.5,.26),stone,.025)
+    output.append(active)
+    return output
+
+
+leaf_card_material=foliage_atlas()
 assets = [building("brick_corner", 5, brick), building("limestone_midrise", 9, sandstone, True),
-          building("brick_lowrise", 3, brick), tree()]
+          building("brick_lowrise", 3, brick), tree()]+roadside_kit()
 
 for collection in assets:
     # One mesh per material: compact GLBs and bounded runtime rendering batches.
@@ -299,9 +509,21 @@ for collection in assets:
     bpy.ops.object.select_all(action="DESELECT")
     for obj in collection.objects:
         obj.select_set(True)
+        # Tangent export needs explicit tris/quads, including cylinder end caps.
+        if any(len(poly.vertices)>4 for poly in obj.data.polygons):
+            bpy.context.view_layer.objects.active=obj
+            triangulate=obj.modifiers.new("Runtime cap triangulation","TRIANGULATE")
+            triangulate.keep_custom_normals=True
+            bpy.ops.object.modifier_apply(modifier=triangulate.name)
     bpy.ops.export_scene.gltf(filepath=str(OUT / (collection.name + ".glb")),
         export_format="GLB", use_selection=True, export_apply=True,
-        export_cameras=False, export_lights=False, export_yup=True)
+        export_cameras=False, export_lights=False, export_yup=True,
+        export_image_format="NONE", export_tangents=True)
+    triangles=0
+    for obj in collection.objects:
+        obj.data.calc_loop_triangles()
+        triangles+=len(obj.data.loop_triangles)
+    REPORT["assets"][collection.name]={"triangles":triangles,"material_batches":len(collection.objects)}
 
 # An organized source scene with the assemblies spaced for inspection/editing.
 for i, collection in enumerate(assets):
@@ -310,4 +532,5 @@ for i, collection in enumerate(assets):
 bpy.context.scene.world.color = (.35, .38, .42)
 bpy.ops.file.pack_all()
 bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE / "qofeno_streetscape.blend"), compress=True)
+(OUT/"asset_report.json").write_text(json.dumps(REPORT,indent=2)+"\n")
 print("Qofeno authored streetscape exported to", OUT)

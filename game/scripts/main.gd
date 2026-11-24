@@ -15,8 +15,14 @@ var drive_controls: Control
 var controls_visual: Control
 var touch_mode := 0
 var steering_sensitivity := 1.0
-var camera_fov := 72.0
-var time_mode := 1
+var camera_fov := 65.0
+var camera_mode := 1
+var time_mode := 3
+var camera_button: Button
+var performance_visible := false
+var performance_label: Label
+var frame_samples: Array[float] = []
+var performance_elapsed := 0.0
 var gear_button: Button
 var interact_button: Button
 var toast_panel: Panel
@@ -48,7 +54,7 @@ var update_label: Label
 var offer_panel: PanelContainer
 var goal_marker: MeshInstance3D
 var paused := true
-var quality := 0 if OS.get_name()=="Android" else 1
+var quality := 1
 var audio_level := 0.65
 var rain_mode := 0
 var weather_time := 0.0
@@ -94,6 +100,9 @@ func _ready() -> void:
 	vehicle=Vehicle.new()
 	add_child(vehicle)
 	vehicle.configure(int(session.state.car),int(session.state.upgrades[int(session.state.car)]))
+	vehicle.set_base_fov(camera_fov)
+	vehicle.set_visual_quality(quality)
+	_apply_render_scale()
 	var saved: Array = session.state.position
 	vehicle.reset_to(Vector3(float(saved[0]),maxf(0.8,float(saved[1])),float(saved[2])),float(session.state.yaw))
 	vehicle.fuel_liters=float(session.state.fuel)
@@ -122,7 +131,7 @@ func _ready() -> void:
 	add_child(goal_marker)
 
 func _setup_input() -> void:
-	var bindings := {"accelerate":KEY_W,"brake":KEY_S,"left":KEY_A,"right":KEY_D,"handbrake":KEY_SPACE,"interact":KEY_E,"horn":KEY_H,"pause_drive":KEY_ESCAPE,"reverse":KEY_R}
+	var bindings := {"accelerate":KEY_W,"brake":KEY_S,"left":KEY_A,"right":KEY_D,"handbrake":KEY_SPACE,"interact":KEY_E,"horn":KEY_H,"pause_drive":KEY_ESCAPE,"reverse":KEY_R,"camera_view":KEY_C}
 	for action in bindings:
 		if not InputMap.has_action(action): InputMap.add_action(action)
 		var event:=InputEventKey.new()
@@ -139,7 +148,7 @@ func _setup_input() -> void:
 		axis.axis_value=pair[2]
 		InputMap.action_add_event(pair[0],axis)
 		InputMap.action_set_deadzone(pair[0],0.12)
-	for pair in [["handbrake",JOY_BUTTON_A],["interact",JOY_BUTTON_X],["reverse",JOY_BUTTON_Y],["pause_drive",JOY_BUTTON_START],["horn",JOY_BUTTON_LEFT_SHOULDER]]:
+	for pair in [["handbrake",JOY_BUTTON_A],["interact",JOY_BUTTON_X],["reverse",JOY_BUTTON_Y],["pause_drive",JOY_BUTTON_START],["horn",JOY_BUTTON_LEFT_SHOULDER],["camera_view",JOY_BUTTON_RIGHT_SHOULDER]]:
 		var button:=InputEventJoypadButton.new()
 		button.button_index=pair[1]
 		InputMap.action_add_event(pair[0],button)
@@ -220,6 +229,8 @@ func _clear_ui() -> void:
 	toast_panel=null
 	interact_button=null
 	gear_button=null
+	camera_button=null
+	performance_label=null
 	hud=null
 	update_label=null
 	offer_panel=null
@@ -350,9 +361,9 @@ func _start_drive() -> void:
 	vehicle.freeze=false
 	vehicle.enabled=true
 	has_driven=true
-	vehicle.cockpit_camera.fov=camera_fov
-	vehicle.get_node("CockpitCamera").current=true
-	vehicle.get_node("CockpitCamera").far=[240.0,520.0,700.0][quality]
+	vehicle.set_base_fov(camera_fov)
+	vehicle.set_camera_far([240.0,520.0,700.0][quality])
+	vehicle.set_camera_mode(camera_mode)
 	_build_hud()
 	greeting_timer=0.0
 
@@ -400,6 +411,19 @@ func _build_hud() -> void:
 		var b:=_button(item[0],item[1],46)
 		b.focus_mode=Control.FOCUS_NONE
 		nav.add_child(b)
+	camera_button=_button("View · Chase" if camera_mode==1 else "View · Cockpit",_toggle_camera,42)
+	camera_button.position=Vector2(1078,126)
+	camera_button.size=Vector2(174,42)
+	camera_button.add_theme_font_size_override("font_size",16)
+	camera_button.focus_mode=Control.FOCUS_NONE
+	hud.add_child(camera_button)
+	performance_label=_label("",14,Color("d5dce1"))
+	performance_label.position=Vector2(28,334)
+	performance_label.add_theme_color_override("font_shadow_color",Color.BLACK)
+	performance_label.add_theme_constant_override("shadow_offset_x",1)
+	performance_label.add_theme_constant_override("shadow_offset_y",1)
+	performance_label.visible=performance_visible
+	hud.add_child(performance_label)
 	speed_label=_label("0",58)
 	speed_label.position=Vector2(824,555)
 	speed_label.size.x=126
@@ -455,7 +479,7 @@ func _build_hud() -> void:
 		controls_visual.size=Vector2(1280,720)
 		hud.add_child(controls_visual)
 	else:
-		var hints:=_label("WASD / ARROWS   Drive     SPACE   Handbrake     E   Interact     R   Reverse     ESC   Pause",14,Color("bbc1c7"))
+		var hints:=_label("WASD / ARROWS   Drive     SPACE   Handbrake     E   Interact     R   Reverse     C   View     ESC   Pause",14,Color("bbc1c7"))
 		hints.position=Vector2(28,680)
 		hud.add_child(hints)
 
@@ -468,6 +492,39 @@ func _toggle_reverse() -> void:
 		return
 	reverse_touch=not reverse_touch
 	if is_instance_valid(gear_button): gear_button.text="R" if reverse_touch else "D"
+
+func _toggle_camera() -> void:
+	camera_mode=1-camera_mode
+	vehicle.set_camera_mode(camera_mode)
+	if is_instance_valid(camera_button): camera_button.text="View · Chase" if camera_mode==1 else "View · Cockpit"
+	_save_settings()
+
+func _set_quality(index: int) -> void:
+	quality=clampi(index,0,2)
+	world.set_quality(quality)
+	vehicle.set_visual_quality(quality)
+	vehicle.set_camera_far([240.0,520.0,700.0][quality])
+	_apply_render_scale()
+	_save_settings()
+
+func _apply_render_scale() -> void:
+	# Scale only the 3D scene; controls/text keep the display's native resolution.
+	get_viewport().scaling_3d_scale=[0.70,0.85,1.0][quality]
+
+func _update_performance(delta: float) -> void:
+	if not performance_visible or mode!="drive":
+		frame_samples.clear()
+		performance_elapsed=0.0
+		return
+	frame_samples.append(delta*1000.0)
+	performance_elapsed+=delta
+	if performance_elapsed<1.0 or not is_instance_valid(performance_label): return
+	var samples:=frame_samples.duplicate()
+	samples.sort()
+	var p95: float=samples[mini(samples.size()-1,int(ceil(samples.size()*0.95))-1)]
+	performance_label.text="%d FPS  /  p95 %.1f ms  /  %d draws" % [Engine.get_frames_per_second(),p95,int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))]
+	frame_samples.clear()
+	performance_elapsed=0.0
 
 func _close_page() -> void:
 	if page_return=="drive": _start_drive()
@@ -613,23 +670,36 @@ func _settings() -> void:
 Hold the accelerator and brake independently. H/B is the handbrake.
 Stop before selecting D or R.",18,Color("bdc4cb")))
 		box.add_child(_label("Keyboard / controller",21,GOLD))
-		box.add_child(_label("WASD or arrows / left stick   Steer & drive
+		box.add_child(_label("WASD or arrows   Drive     Left stick   Steer
+RT / LT   Accelerator / brake
 Space / A   Handbrake     E / X   Interact
 R / Y   Change direction     Escape / Start   Pause",18))
+		box.add_child(_label("C / RB   Change camera     H / LB   Horn",18))
 		box.add_child(_button("Recover car to road",func(): _rescue(); _start_drive()))
 	elif settings_tab==1:
 		var q:=OptionButton.new()
 		for text in ["Graphics · Low","Graphics · Balanced","Graphics · High"]: q.add_item(text)
 		q.select(quality)
-		q.item_selected.connect(func(index): quality=index; world.set_quality(index); _save_settings())
+		q.item_selected.connect(_set_quality)
 		box.add_child(q)
-		box.add_child(_label("Cockpit field of view",18))
+		box.add_child(_label("3D resolution: 70% Low / 85% Balanced / 100% High. UI stays sharp.",16,Color("a9b1b9")))
+		var metrics:=CheckButton.new()
+		metrics.text="Show FPS and frame time"
+		metrics.button_pressed=performance_visible
+		metrics.toggled.connect(func(value): performance_visible=value; _save_settings())
+		box.add_child(metrics)
+		var view:=OptionButton.new()
+		for text in ["Camera · cockpit","Camera · chase"]: view.add_item(text)
+		view.select(camera_mode)
+		view.item_selected.connect(func(index): camera_mode=index; vehicle.set_camera_mode(index,false); _save_settings())
+		box.add_child(view)
+		box.add_child(_label("Base field of view · widens with speed",18))
 		var fov:=HSlider.new()
 		fov.min_value=60
-		fov.max_value=90
+		fov.max_value=82
 		fov.step=1
 		fov.value=camera_fov
-		fov.value_changed.connect(func(value): camera_fov=value; vehicle.cockpit_camera.fov=value; _save_settings())
+		fov.value_changed.connect(func(value): camera_fov=value; vehicle.set_base_fov(value); _save_settings())
 		box.add_child(fov)
 		box.add_child(_label("Engine and ambience volume",18))
 		var volume:=HSlider.new()
@@ -644,7 +714,7 @@ R / Y   Change direction     Escape / Start   Pause",18))
 		rain.item_selected.connect(func(index): rain_mode=index; _save_settings())
 		box.add_child(rain)
 		var daylight:=OptionButton.new()
-		for text in ["Time · device clock","Time · afternoon","Time · sunset"]: daylight.add_item(text)
+		for text in ["Time · device clock","Time · afternoon","Time · sunset","Time · golden hour"]: daylight.add_item(text)
 		daylight.select(time_mode)
 		daylight.item_selected.connect(func(index): time_mode=index; _save_settings())
 		box.add_child(daylight)
@@ -737,12 +807,14 @@ func _notify(message: String) -> void:
 
 func _process(delta: float) -> void:
 	if not is_instance_valid(world): return
+	_update_performance(delta)
 	timer+=delta
 	weather_time+=delta
 	var now:=Time.get_datetime_dict_from_system()
 	var hour:=float(now.hour)+float(now.minute)/60.0
 	if time_mode==1: hour=15.5
 	elif time_mode==2: hour=17.8
+	elif time_mode==3: hour=17.0
 	var target_wet:=0.7 if sin(weather_time/180.0)>0.3 else 0.0
 	if rain_mode==1: target_wet=0
 	if rain_mode==2: target_wet=0.9
@@ -776,6 +848,7 @@ func _process(delta: float) -> void:
 		throttle_touch=drive_controls.throttle
 		brake_touch=drive_controls.brake
 	if Input.is_action_just_pressed("reverse"): _toggle_reverse()
+	if Input.is_action_just_pressed("camera_view"): _toggle_camera()
 	vehicle.throttle=maxf(Input.get_action_strength("accelerate"),throttle_touch)*(-1 if reverse_touch else 1)
 	vehicle.brake=maxf(Input.get_action_strength("brake"),brake_touch)
 	var key_steer:=Input.get_axis("left","right")
@@ -878,8 +951,10 @@ func _load_settings() -> void:
 		rain_mode=clampi(int(config.get_value("world","weather",0)),0,2)
 		touch_mode=clampi(int(config.get_value("controls","touch",0)),0,2)
 		steering_sensitivity=clampf(float(config.get_value("controls","sensitivity",1.0)),0.5,1.6)
-		camera_fov=clampf(float(config.get_value("video","fov",72.0)),60,90)
-		time_mode=clampi(int(config.get_value("world","time",1)),0,2)
+		camera_fov=clampf(float(config.get_value("video","fov",65.0)),60,82)
+		camera_mode=clampi(int(config.get_value("video","camera",1)),0,1)
+		performance_visible=bool(config.get_value("video","performance",false))
+		time_mode=clampi(int(config.get_value("world","time",3)),0,3)
 func _save_settings() -> void:
 	var config:=ConfigFile.new()
 	config.set_value("video","quality",quality)
@@ -888,5 +963,7 @@ func _save_settings() -> void:
 	config.set_value("controls","touch",touch_mode)
 	config.set_value("controls","sensitivity",steering_sensitivity)
 	config.set_value("video","fov",camera_fov)
+	config.set_value("video","camera",camera_mode)
+	config.set_value("video","performance",performance_visible)
 	config.set_value("world","time",time_mode)
 	config.save(settings_file)

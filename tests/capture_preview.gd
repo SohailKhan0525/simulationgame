@@ -17,7 +17,12 @@ func run() -> void:
 	await take("menu")
 	game._start_drive()
 	for _i in range(10): await process_frame
+	await take("chase")
+	game.camera_mode=0
+	game._start_drive()
+	for _i in range(10): await process_frame
 	await take("cockpit")
+	game.camera_mode=1
 	game.touch_mode=1
 	game._start_drive()
 	await take("touch")
@@ -36,6 +41,7 @@ func run() -> void:
 	for _i in range(8): await process_frame
 	game._layout_ui()
 	await take("wide-touch")
+	print("RENDER_PROFILE method=",RenderingServer.get_current_rendering_method()," msaa=",root.msaa_3d," atlas=",ProjectSettings.get_setting("rendering/reflections/reflection_atlas/reflection_size"))
 	print("RENDER_CAPTURE_PASS")
 	if "--interactive-preview" in OS.get_cmdline_user_args():
 		game._menu()

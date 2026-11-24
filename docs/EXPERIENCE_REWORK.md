@@ -13,7 +13,7 @@ This pass addresses Qofeno Drive's cockpit visibility, touch handling, menus, lo
 
 ## Implemented direction
 
-The cockpit remains the sole driving view. Menus use a restrained charcoal and amber palette, a clear primary action, visible focus, and scrollable content. Settings return to the screen from which they were opened. The HUD keeps the road centre clear, moves navigation and driving information to the edges, and shows interaction only near relevant destinations or fuel stations. Touch controls appear automatically on touch devices and can be shown or hidden in Settings.
+The later mobile-graphics pass adds a chase camera while retaining the cockpit view; C, controller RB, or the View button changes views. Menus use a restrained charcoal and amber palette, a clear primary action, visible focus, and scrollable content. Settings return to the screen from which they were opened. The HUD keeps the road centre clear, moves navigation and driving information to the edges, and shows interaction only near relevant destinations or fuel stations. Touch controls appear automatically on touch devices and can be shown or hidden in Settings.
 
 Each finger owns its steering, accelerator, brake, or handbrake input until release/cancellation. Steering responds progressively and returns to centre. Wheel lock reduces with speed. Braking takes precedence over acceleration, and the direction selector requires a near stop. Keyboard and gamepad use the same actions; gamepad triggers control acceleration and braking.
 

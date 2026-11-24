@@ -1,4 +1,16 @@
-# Driving experience validation
+# Mobile graphics validation
+
+Godot 4.5.1 and Blender 4.3.2, 24 November 2026. The local headless import succeeds and all nine game suites pass: session36, world27, vehicle15, touch18, handling9, vehicle presentation38, render profile23, UI flow237, and the smoke flow. The three release-version tests also pass.
+
+The art validator decodes all twelve 1024² PBR maps and validates thirteen GLBs, 45,084 triangles, four wheel origins, normals, UVs, indices, and PBR data. All thirteen runtime PNGs use mipmapped VRAM compression. The Blender exports contain no duplicate embedded texture images.
+
+The native workstation cannot initialize Vulkan (`VK_KHR_surface` is unavailable). Its fallback render is explicitly Compatibility/OpenGL and cannot establish Mobile-renderer behavior. GitHub Actions additionally runs a real software Vulkan rendering-device check and captures the complete game under the Mobile renderer. Headless configuration checks alone are not accepted as Vulkan rendering proof.
+
+The previous signed Android workflow stopped before building because the repository's `QOFENO_KEYSTORE_PASSWORD` secret was missing. The signing identity remains unchanged; no debug-signing fallback is used.
+
+See [MOBILE_GRAPHICS.md](MOBILE_GRAPHICS.md) for the AgX/ACES and live-probe resolution constraints and physical-device test procedure. The 60 FPS cap is a target, not a measured Android performance claim.
+
+## Previous UI rework validation
 
 Godot 4.5.1 stable (f62fdbde1), Compatibility renderer, 60 Hz physics.
 

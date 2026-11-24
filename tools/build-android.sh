@@ -33,6 +33,8 @@ if grep -Eq 'SCRIPT ERROR:|Parse Error:|Failed to load script' build/import.log;
   echo 'Godot import reported script errors.' >&2
   exit 1
 fi
+python3 tools/configure_texture_imports.py --check
+python3 tools/validate_art_assets.py
 "$godot_bin" --headless --path game --install-android-build-template --export-release Android "$repo_root/build/Qofeno-Drive.apk"
 
 # Fail the release if package identity, SDK, versions, ABI contents or signing differ.
