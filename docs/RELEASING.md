@@ -4,7 +4,7 @@ The `Qofeno Drive Android release` workflow builds a signed APK and publishes it
 
 ## Signing identity
 
-`signing/qofeno-release.keystore` contains the persistent, password-protected signing key. Its alias is `qofeno`. Set repository Actions secret `QOFENO_KEYSTORE_PASSWORD` to its private password. Keep a secure independent backup of both the key and password. Do not commit or print the password. Losing the signing identity prevents updates to installed copies; changing it requires uninstalling the old app. The workflow fails before building when the secret is absent and never substitutes debug signing.
+`signings/qofeno-release.keystore` contains the active, password-protected RSA-3072 release signing key generated on 25 November 2026. The previous `signing/qofeno-release.keystore` is retained unchanged and is no longer selected for builds. Its alias is `qofeno`; the public certificate fingerprint is recorded in `signings/release-certificate.json`. Set repository Actions secret `QOFENO_KEYSTORE_PASSWORD` to its private password. Keep a secure independent backup of both the key and password. Do not commit or print the password. Losing the signing identity prevents updates to installed copies. This replacement key cannot update an installation signed with the old key: reinstalling is required and may remove local saves. The workflow fails before building when the secret is absent and never substitutes debug signing.
 
 ## Version and publication
 

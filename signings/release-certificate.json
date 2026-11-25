@@ -1,0 +1,9 @@
+{
+  "file": "signings/qofeno-release.keystore",
+  "alias": "qofeno",
+  "type": "PKCS12",
+  "algorithm": "RSA-3072",
+  "certificate_sha256": "976abbcf4bb804c95d5095ae360baf4c467f035f5238532571b670d2114b6c9b",
+  "keystore_sha256": "d7edd6710508375ca53cf87558374111dc913a8c75f309b9566bfc61df8d9299",
+  "old_keystore_preserved": true
+}

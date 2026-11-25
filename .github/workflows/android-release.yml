@@ -37,12 +37,12 @@ jobs:
         env:
           KEY_PASSWORD: ${{ secrets.QOFENO_KEYSTORE_PASSWORD }}
         run: |
-          test -s signing/qofeno-release.keystore
+          test -s signings/qofeno-release.keystore
           if [[ -z "$KEY_PASSWORD" ]]; then
-            echo '::error::The existing signing/qofeno-release.keystore needs its password in the QOFENO_KEYSTORE_PASSWORD Actions secret.'
+            echo '::error::The existing signings/qofeno-release.keystore needs its password in the QOFENO_KEYSTORE_PASSWORD Actions secret.'
             exit 1
           fi
-          "$JAVA_HOME/bin/keytool" -list -keystore signing/qofeno-release.keystore \
+          "$JAVA_HOME/bin/keytool" -list -keystore signings/qofeno-release.keystore \
             -alias qofeno -storepass:env KEY_PASSWORD > /dev/null
 
       - uses: actions/setup-node@v4
@@ -86,7 +86,7 @@ jobs:
       - name: Build, verify, and publish Android release
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/signing/qofeno-release.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/signings/qofeno-release.keystore
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: qofeno
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.QOFENO_KEYSTORE_PASSWORD }}
         run: |

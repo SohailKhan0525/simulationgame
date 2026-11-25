@@ -6,7 +6,7 @@ godot_bin="${GODOT_BIN:-godot}"
 : "${ANDROID_HOME:?Set ANDROID_HOME to the Android SDK directory.}"
 : "${JAVA_HOME:?Set JAVA_HOME to the JDK 17 directory.}"
 : "${GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD:?Set the private release keystore password. Debug signing is never used.}"
-export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="${GODOT_ANDROID_KEYSTORE_RELEASE_PATH:-$repo_root/signing/qofeno-release.keystore}"
+export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="${GODOT_ANDROID_KEYSTORE_RELEASE_PATH:-$repo_root/signings/qofeno-release.keystore}"
 export GODOT_ANDROID_KEYSTORE_RELEASE_USER="${GODOT_ANDROID_KEYSTORE_RELEASE_USER:-qofeno}"
 test -s "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH"
 mkdir -p build game/addons/qofeno_updater
