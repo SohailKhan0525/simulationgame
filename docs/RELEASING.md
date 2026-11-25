@@ -8,7 +8,9 @@ The `Qofeno Drive Android release` workflow builds a signed APK and publishes it
 
 ## Version and publication
 
-Push Conventional Commits to `main`: `fix:` bumps patch, `feat:` bumps minor, and a breaking-change marker bumps major. Other conventional commit types also bump patch. Nonconventional commit messages may not trigger a release. The first release is `1.0.0`. A workflow retry without new release-worthy commits does not publish another version.
+The checked-in upgrade is **1.1.0**, Android version code **1001000**. With no existing stable release tag, the workflow builds and verifies this version, then creates its first real release with the APK, checksum and update manifest. It never creates an empty baseline tag or lets semantic-release downgrade the app to its default initial version of 1.0.0.
+
+After that first release, push Conventional Commits to `main`: `fix:` bumps patch, `feat:` bumps minor, and a breaking-change marker bumps major. Other conventional commit types also bump patch. Nonconventional commit messages may not trigger a release. A workflow retry without new release-worthy commits does not publish another version.
 
 semantic-release calculates the version, stamps the APK and `game/version.json`, builds the native updater and game, verifies the APK, and only then tags and publishes. The Android version code is `major * 1,000,000 + minor * 1,000 + patch`; minor and patch must stay below 1000. Do not manually reuse version codes.
 
@@ -21,7 +23,7 @@ Install the same Godot/Android/JDK/Gradle versions, then:
 ```sh
 npm ci --ignore-scripts
 npm run test:release
-node tools/release.mjs 1.0.0
+node tools/release.mjs 1.1.0
 # Configure ANDROID_HOME, JAVA_HOME, and the private signing password in your shell.
 # GODOT_BIN and GRADLE_BIN can select local executables.
 bash tools/build-android.sh

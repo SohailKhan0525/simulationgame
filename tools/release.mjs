@@ -12,8 +12,29 @@ export function versionCode(version) {
   return code;
 }
 
+export function readVersion(root = process.cwd()) {
+  const metadata = JSON.parse(readFileSync(`${root}/game/version.json`, 'utf8'));
+  const code = versionCode(metadata.version);
+  if (metadata.version_code !== code) {
+    throw new Error('Game version metadata has an inconsistent Android version code.');
+  }
+  const preset = readFileSync(`${root}/game/export_presets.cfg`, 'utf8');
+  const presetCode = /^version\/code=(\d+)$/m.exec(preset);
+  const presetName = /^version\/name="([^"]+)"$/m.exec(preset);
+  if (!presetCode || !presetName || Number(presetCode[1]) !== code || presetName[1] !== metadata.version) {
+    throw new Error('Android export version differs from game version metadata.');
+  }
+  return {version: metadata.version, version_code: code};
+}
+
 export function stampRelease(version, root = process.cwd()) {
   const code = versionCode(version);
+  const current = readVersion(root);
+  // An untagged semantic-release repository proposes 1.0.0. Never let that
+  // silently downgrade the explicitly selected first APK release.
+  if (code < current.version_code) {
+    throw new Error(`Refusing Android version downgrade from ${current.version} to ${version}.`);
+  }
   const preset = `${root}/game/export_presets.cfg`;
   const text = readFileSync(preset, 'utf8');
   if (!/^version\/code=\d+$/m.test(text) || !/^version\/name="[^"]+"$/m.test(text)) {
@@ -26,5 +47,9 @@ export function stampRelease(version, root = process.cwd()) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  console.log(JSON.stringify(stampRelease(process.argv[2])));
+  if (process.argv[2] === '--version') {
+    console.log(readVersion().version);
+  } else {
+    console.log(JSON.stringify(stampRelease(process.argv[2])));
+  }
 }
